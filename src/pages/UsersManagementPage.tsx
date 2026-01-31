@@ -173,17 +173,38 @@ export default function UsersManagementPage() {
     }
   };
 
-  const handleUserStatusChange = (userId: string, newStatus: "active" | "inactive") => {
-    setUsers(users.map(u => u.id === userId ? { ...u, status: newStatus } : u));
-    if (selectedUser?.id === userId) {
-      setSelectedUser({ ...selectedUser, status: newStatus });
+  const handleUserStatusChange = async (userId: string, newStatus: "active" | "inactive") => {
+    try {
+      await api.patch(`/admin/users/${userId}`, { status: newStatus.toUpperCase() });
+      refetch();
+      if (selectedUser?.id === userId) {
+        setSelectedUser({ ...selectedUser, status: newStatus });
+      }
+      toast.success(newStatus === "active" ? "Đã kích hoạt tài khoản!" : "Đã khóa tài khoản!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Cập nhật trạng thái thất bại");
     }
   };
 
+  function escapeCsv(s: string) {
+    if (/[",\r\n]/.test(String(s))) return `"${String(s).replace(/"/g, '""')}"`;
+    return String(s);
+  }
+
   const handleExportUsers = () => {
-    toast.success("Đã xuất danh sách người dùng!", {
-      description: "File CSV đã được tải xuống",
-    });
+    const header = "STT,Họ tên,Email,Vai trò,Trạng thái,Ngày tạo";
+    const rows = filteredUsers.map((u, i) =>
+      [i + 1, escapeCsv(u.name), escapeCsv(u.email), u.role, u.status, escapeCsv(u.createdAt)].join(",")
+    );
+    const csv = "\uFEFF" + [header, ...rows].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `danh-sach-nguoi-dung-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Đã xuất danh sách người dùng (CSV)!");
   };
 
   const handleResetPassword = (userId: string) => {
@@ -235,7 +256,7 @@ export default function UsersManagementPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" onClick={() => refetch()} title="Làm mới">
               <RefreshCw className="w-4 h-4" />
             </Button>
             <Button variant="outline" onClick={handleExportUsers}>
@@ -431,7 +452,6 @@ export default function UsersManagementPage() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleUserStatusChange(user.id, "inactive");
-                                  toast.success("Đã khóa tài khoản!");
                                 }}
                               >
                                 <Ban className="w-4 h-4 mr-2" />
@@ -443,7 +463,6 @@ export default function UsersManagementPage() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleUserStatusChange(user.id, "active");
-                                  toast.success("Đã kích hoạt tài khoản!");
                                 }}
                               >
                                 <CheckCircle2 className="w-4 h-4 mr-2" />

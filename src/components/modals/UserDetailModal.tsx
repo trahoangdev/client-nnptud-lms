@@ -67,15 +67,12 @@ export function UserDetailModal({
 
   const handleToggleStatus = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
     const newStatus = user.status === "active" ? "inactive" : "active";
-    onStatusChange?.(user.id, newStatus);
-    toast.success(
-      newStatus === "active"
-        ? "Đã kích hoạt tài khoản!"
-        : "Đã khóa tài khoản!"
-    );
-    setIsLoading(false);
+    try {
+      await onStatusChange?.(user.id, newStatus);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleResetPassword = async () => {

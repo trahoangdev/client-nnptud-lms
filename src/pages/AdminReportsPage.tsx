@@ -32,6 +32,9 @@ import {
   Download,
   Filter,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/api/client";
+import { Loader2 } from "lucide-react";
 
 // Mock data for charts
 const userGrowthData = [
@@ -100,65 +103,62 @@ const dailyActiveUsers = [
   { date: "14/12", users: 172 },
 ];
 
+interface AdminStats {
+  totalUsers: number;
+  totalTeachers: number;
+  totalStudents: number;
+  totalClasses: number;
+  totalAssignments: number;
+  activeUsers: number;
+}
+
 export default function AdminReportsPage() {
   const [timeRange, setTimeRange] = useState("month");
   const [isExporting, setIsExporting] = useState(false);
 
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["admin-stats-reports"],
+    queryFn: () => api.get<AdminStats>("/admin/stats"),
+  });
+
   const handleExportPDF = async () => {
     setIsExporting(true);
-    
-    // Simulate PDF generation
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Create a simple text-based report for download
+    await new Promise((resolve) => setTimeout(resolve, 500));
     const reportContent = `
 NNPTUD LMS - BÁO CÁO THỐNG KÊ HỆ THỐNG
 =====================================
-Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}
-Khoảng thời gian: ${timeRange === 'week' ? '7 ngày qua' : timeRange === 'month' ? '30 ngày qua' : timeRange === 'quarter' ? '3 tháng qua' : '12 tháng qua'}
+Ngày xuất: ${new Date().toLocaleDateString("vi-VN")}
+Khoảng thời gian: ${timeRange === "week" ? "7 ngày qua" : timeRange === "month" ? "30 ngày qua" : timeRange === "quarter" ? "3 tháng qua" : "12 tháng qua"}
 
 1. TỔNG QUAN NGƯỜI DÙNG
 -----------------------
-- Tổng số giáo viên: 48
-- Tổng số học sinh: 312
-- Người dùng hoạt động hôm nay: 185
+- Tổng số người dùng: ${stats?.totalUsers ?? "–"}
+- Tổng số giáo viên: ${stats?.totalTeachers ?? "–"}
+- Tổng số sinh viên: ${stats?.totalStudents ?? "–"}
+- Tài khoản hoạt động: ${stats?.activeUsers ?? "–"}
 
 2. THỐNG KÊ LỚP HỌC
 -------------------
-- Tổng số lớp học: 24
-- Lớp hoạt động: 22
-- Bài tập đã tạo: 100+
+- Tổng số lớp học: ${stats?.totalClasses ?? "–"}
+- Bài tập đã tạo: ${stats?.totalAssignments ?? "–"}
 
-3. THỐNG KÊ BÀI NỘP
--------------------
-- Nộp đúng hạn: ~87%
-- Nộp trễ: ~11%
-- Chưa nộp: ~2%
+3. THỐNG KÊ BÀI NỘP / PHÂN BỐ ĐIỂM
+----------------------------------
+(Dữ liệu chi tiết cần API bổ sung)
 
-4. PHÂN BỐ ĐIỂM SỐ
-------------------
-- Xuất sắc (9-10): 25%
-- Giỏi (8-8.9): 35%
-- Khá (6.5-7.9): 28%
-- Trung bình (5-6.4): 10%
-- Yếu (<5): 2%
-
-5. DUNG LƯỢNG LƯU TRỮ
+4. DUNG LƯỢNG LƯU TRỮ
 ---------------------
-- Đã sử dụng: 28.7 GB / 100 GB
-- Tỷ lệ: 28.7%
-    `;
-    
-    const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+(Chưa có API theo dõi dung lượng)
+`;
+    const blob = new Blob([reportContent], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `LMS_Report_${new Date().toISOString().split('T')[0]}.txt`;
+    link.download = `LMS_Report_${new Date().toISOString().split("T")[0]}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
     setIsExporting(false);
   };
 
@@ -192,17 +192,20 @@ Khoảng thời gian: ${timeRange === 'week' ? '7 ngày qua' : timeRange === 'mo
         </div>
 
         {/* Quick Stats */}
+        {statsLoading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {!statsLoading && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Tổng người dùng</p>
-                  <p className="text-2xl font-bold">360</p>
-                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3" />
-                    +12% so với tháng trước
-                  </p>
+                  <p className="text-2xl font-bold">{stats?.totalUsers ?? "–"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Giáo viên + Sinh viên</p>
                 </div>
                 <div className="p-3 rounded-full bg-primary/10">
                   <Users className="w-6 h-6 text-primary" />
@@ -214,12 +217,9 @@ Khoảng thời gian: ${timeRange === 'week' ? '7 ngày qua' : timeRange === 'mo
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Lớp học hoạt động</p>
-                  <p className="text-2xl font-bold">24</p>
-                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3" />
-                    +3 lớp mới
-                  </p>
+                  <p className="text-sm text-muted-foreground">Lớp học</p>
+                  <p className="text-2xl font-bold">{stats?.totalClasses ?? "–"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Tổng lớp trong hệ thống</p>
                 </div>
                 <div className="p-3 rounded-full bg-blue-500/10">
                   <BookOpen className="w-6 h-6 text-blue-500" />
@@ -232,11 +232,8 @@ Khoảng thời gian: ${timeRange === 'week' ? '7 ngày qua' : timeRange === 'mo
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Bài tập đã tạo</p>
-                  <p className="text-2xl font-bold">156</p>
-                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3" />
-                    +28 tuần này
-                  </p>
+                  <p className="text-2xl font-bold">{stats?.totalAssignments ?? "–"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Tổng bài tập trong hệ thống</p>
                 </div>
                 <div className="p-3 rounded-full bg-orange-500/10">
                   <FileText className="w-6 h-6 text-orange-500" />
@@ -248,12 +245,9 @@ Khoảng thời gian: ${timeRange === 'week' ? '7 ngày qua' : timeRange === 'mo
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Tỷ lệ nộp đúng hạn</p>
-                  <p className="text-2xl font-bold">87%</p>
-                  <p className="text-xs text-green-600 flex items-center gap-1 mt-1">
-                    <TrendingUp className="w-3 h-3" />
-                    +5% cải thiện
-                  </p>
+                  <p className="text-sm text-muted-foreground">Tài khoản hoạt động</p>
+                  <p className="text-2xl font-bold">{stats?.activeUsers ?? "–"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">ACTIVE</p>
                 </div>
                 <div className="p-3 rounded-full bg-green-500/10">
                   <Download className="w-6 h-6 text-green-500" />
@@ -262,6 +256,7 @@ Khoảng thời gian: ${timeRange === 'week' ? '7 ngày qua' : timeRange === 'mo
             </CardContent>
           </Card>
         </div>
+        )}
 
         {/* Charts Tabs */}
         <Tabs defaultValue="users" className="space-y-4">

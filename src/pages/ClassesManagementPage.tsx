@@ -11,7 +11,6 @@ import {
   RefreshCw,
   Users,
   FileText,
-  HardDrive,
   Calendar,
   Eye,
   Trash2,
@@ -23,7 +22,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -104,9 +102,7 @@ export default function ClassesManagementPage() {
   const { classes, isLoading, refetch } = useAdminClasses();
 
   // Stats
-  const totalStorage = classes.reduce((acc, c) => acc + c.storageUsed, 0);
   const totalStudents = classes.reduce((acc, c) => acc + c.students, 0);
-  const totalAssignments = classes.reduce((acc, c) => acc + c.assignments, 0);
 
   const stats = [
     {
@@ -129,13 +125,6 @@ export default function ClassesManagementPage() {
       icon: Users,
       color: "text-info",
       bgColor: "bg-info/10",
-    },
-    {
-      title: "Dung lượng",
-      value: `${(totalStorage / 10).toFixed(1)} GB`,
-      icon: HardDrive,
-      color: "text-warning",
-      bgColor: "bg-warning/10",
     },
   ];
 
@@ -184,20 +173,30 @@ export default function ClassesManagementPage() {
     }
   };
 
+  function escapeCsv(s: string) {
+    if (/[",\r\n]/.test(String(s))) return `"${String(s).replace(/"/g, '""')}"`;
+    return String(s);
+  }
+
   const handleExportClasses = () => {
-    toast.success("Đã xuất danh sách lớp học!", {
-      description: "File CSV đã được tải xuống",
-    });
+    const header = "STT,Tên lớp,Mã,Giáo viên,Số SV,Số BT,Trạng thái";
+    const rows = filteredClasses.map((c, i) =>
+      [i + 1, escapeCsv(c.name), escapeCsv(c.code || ""), escapeCsv(c.teacher), c.students, c.assignments, c.status].join(",")
+    );
+    const csv = "\uFEFF" + [header, ...rows].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `danh-sach-lop-hoc-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Đã xuất danh sách lớp học (CSV)!");
   };
 
   const handleArchiveClass = async (classId: string) => {
-    try {
-      await api.patch(`/classes/${classId}`, { status: "ARCHIVED" });
-      refetch();
-      toast.success("Đã lưu trữ lớp học!");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lỗi");
-    }
+    await api.patch(`/classes/${classId}`, { status: "ARCHIVED" });
+    refetch();
   };
 
   const handleActivateClass = async (classId: string) => {
@@ -232,6 +231,11 @@ export default function ClassesManagementPage() {
         open={!!selectedClass}
         onOpenChange={(open) => !open && setSelectedClass(null)}
         classData={selectedClass}
+        onArchive={handleArchiveClass}
+        onDeleted={() => {
+          refetch();
+          setSelectedClass(null);
+        }}
       />
 
       <div className="space-y-6">
@@ -244,7 +248,7 @@ export default function ClassesManagementPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" onClick={() => refetch()} title="Làm mới">
               <RefreshCw className="w-4 h-4" />
             </Button>
             <Button variant="outline" onClick={handleExportClasses}>
@@ -279,41 +283,6 @@ export default function ClassesManagementPage() {
             </motion.div>
           ))}
         </div>
-
-        {/* Storage Overview */}
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <HardDrive className="w-5 h-5 text-warning" />
-              Tổng quan dung lượng
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Tổng sử dụng</span>
-                  <span className="text-sm text-muted-foreground">{(totalStorage / 10).toFixed(1)} / 100 GB</span>
-                </div>
-                <Progress value={totalStorage} className="h-3" />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Lớp dùng nhiều nhất</p>
-                <div className="space-y-1">
-                  {classes
-                    .sort((a, b) => b.storageUsed - a.storageUsed)
-                    .slice(0, 3)
-                    .map((cls) => (
-                      <div key={cls.id} className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{cls.name} - {cls.code}</span>
-                        <span className="font-medium">{cls.storage}</span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Classes Table */}
         <Card className="border-0 shadow-md">
@@ -366,7 +335,6 @@ export default function ClassesManagementPage() {
                   <TableHead>Giáo viên</TableHead>
                   <TableHead className="text-center">Sinh viên</TableHead>
                   <TableHead className="text-center">Bài tập</TableHead>
-                  <TableHead>Dung lượng</TableHead>
                   <TableHead>Trạng thái</TableHead>
                   <TableHead>Hoạt động</TableHead>
                   <TableHead className="text-right">Hành động</TableHead>
@@ -375,7 +343,7 @@ export default function ClassesManagementPage() {
               <TableBody>
                 {paginatedClasses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-12">
+                    <TableCell colSpan={7} className="text-center py-12">
                       <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                       <p className="text-muted-foreground">Không tìm thấy lớp học nào</p>
                       <Button
@@ -423,12 +391,6 @@ export default function ClassesManagementPage() {
                         <div className="flex items-center justify-center gap-1">
                           <FileText className="w-4 h-4 text-muted-foreground" />
                           {cls.assignments}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress value={cls.storageUsed} className="h-2 w-16" />
-                          <span className="text-sm">{cls.storage}</span>
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(cls.status)}</TableCell>

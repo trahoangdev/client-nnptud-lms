@@ -4,7 +4,6 @@ import {
   Users,
   BookOpen,
   FileText,
-  HardDrive,
   Shield,
   Search,
   MoreVertical,
@@ -50,42 +49,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AppLayout } from "@/components/layout";
 import { CreateUserModal, UserDetailModal, ClassDetailAdminModal } from "@/components/modals";
 import { toast } from "sonner";
-
-// Mock data
-const stats = [
-  {
-    title: "Tổng người dùng",
-    value: "1,234",
-    change: "+12%",
-    icon: Users,
-    color: "text-primary",
-    bgColor: "bg-primary/10",
-  },
-  {
-    title: "Lớp học hoạt động",
-    value: "156",
-    change: "+8%",
-    icon: BookOpen,
-    color: "text-success",
-    bgColor: "bg-success/10",
-  },
-  {
-    title: "Bài tập đã giao",
-    value: "2,847",
-    change: "+23%",
-    icon: FileText,
-    color: "text-info",
-    bgColor: "bg-info/10",
-  },
-  {
-    title: "Dung lượng sử dụng",
-    value: "45.2 GB",
-    change: "68%",
-    icon: HardDrive,
-    color: "text-warning",
-    bgColor: "bg-warning/10",
-  },
-];
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/api/client";
+import { Loader2 } from "lucide-react";
 
 interface UserData {
   id: string;
@@ -97,161 +63,23 @@ interface UserData {
   createdAt: string;
 }
 
-const initialUsers: UserData[] = [
-  {
-    id: "1",
-    name: "Nguyễn Văn A",
-    email: "nguyenvana@email.com",
-    role: "teacher",
-    status: "active",
-    classes: 5,
-    createdAt: "2025-01-01",
-  },
-  {
-    id: "2",
-    name: "Trần Văn B",
-    email: "tranvanb@email.com",
-    role: "student",
-    status: "active",
-    classes: 3,
-    createdAt: "2025-01-05",
-  },
-  {
-    id: "3",
-    name: "Lê Thị C",
-    email: "lethic@email.com",
-    role: "teacher",
-    status: "inactive",
-    classes: 2,
-    createdAt: "2025-01-08",
-  },
-  {
-    id: "4",
-    name: "Phạm Văn D",
-    email: "phamvand@email.com",
-    role: "student",
-    status: "active",
-    classes: 4,
-    createdAt: "2025-01-10",
-  },
-  {
-    id: "5",
-    name: "Hoàng Thị E",
-    email: "hoangthie@email.com",
-    role: "student",
-    status: "active",
-    classes: 2,
-    createdAt: "2025-01-12",
-  },
-  {
-    id: "6",
-    name: "Vũ Minh F",
-    email: "vuminhf@email.com",
-    role: "teacher",
-    status: "active",
-    classes: 3,
-    createdAt: "2025-01-15",
-  },
-  {
-    id: "7",
-    name: "Đỗ Thị G",
-    email: "dothig@email.com",
-    role: "student",
-    status: "active",
-    classes: 5,
-    createdAt: "2025-01-18",
-  },
-];
+interface ClassRow {
+  id: string;
+  name: string;
+  teacher: string;
+  students: number;
+  assignments: number;
+  status: "active" | "archived";
+  storage: string;
+}
 
-const initialClasses = [
-  {
-    id: "1",
-    name: "Lập trình Web - KTPM01",
-    teacher: "Nguyễn Văn A",
-    students: 32,
-    assignments: 5,
-    status: "active" as const,
-    storage: "1.2 GB",
-  },
-  {
-    id: "2",
-    name: "Cơ sở dữ liệu - KTPM02",
-    teacher: "Nguyễn Văn A",
-    students: 28,
-    assignments: 8,
-    status: "active" as const,
-    storage: "0.8 GB",
-  },
-  {
-    id: "3",
-    name: "Thuật toán - KTPM03",
-    teacher: "Lê Thị C",
-    students: 35,
-    assignments: 3,
-    status: "archived" as const,
-    storage: "2.1 GB",
-  },
-  {
-    id: "4",
-    name: "Mạng máy tính - KTPM04",
-    teacher: "Vũ Minh F",
-    students: 25,
-    assignments: 4,
-    status: "active" as const,
-    storage: "0.5 GB",
-  },
-  {
-    id: "5",
-    name: "Kỹ thuật phần mềm - KTPM05",
-    teacher: "Vũ Minh F",
-    students: 30,
-    assignments: 6,
-    status: "active" as const,
-    storage: "1.8 GB",
-  },
-];
-
+// Placeholder recent activities (no API yet)
 const recentActivities = [
-  {
-    id: "1",
-    action: "Tạo tài khoản mới",
-    user: "Hoàng Thị E",
-    role: "student",
-    time: "5 phút trước",
-    type: "create",
-  },
-  {
-    id: "2",
-    action: "Tạo lớp học mới",
-    user: "Nguyễn Văn A",
-    role: "teacher",
-    time: "1 giờ trước",
-    type: "create",
-  },
-  {
-    id: "3",
-    action: "Khóa tài khoản",
-    user: "Lê Thị C",
-    role: "teacher",
-    time: "2 giờ trước",
-    type: "warning",
-  },
-  {
-    id: "4",
-    action: "Reset mật khẩu",
-    user: "Trần Văn B",
-    role: "student",
-    time: "3 giờ trước",
-    type: "security",
-  },
-  {
-    id: "5",
-    action: "Xuất dữ liệu lớp",
-    user: "Nguyễn Văn A",
-    role: "teacher",
-    time: "5 giờ trước",
-    type: "export",
-  },
+  { id: "1", action: "Tạo tài khoản mới", user: "–", role: "student", time: "Gần đây", type: "create" as const },
+  { id: "2", action: "Tạo lớp học mới", user: "–", role: "teacher", time: "Gần đây", type: "create" as const },
+  { id: "3", action: "Khóa / kích hoạt tài khoản", user: "–", role: "teacher", time: "Gần đây", type: "warning" as const },
+  { id: "4", action: "Reset mật khẩu", user: "–", role: "student", time: "Gần đây", type: "security" as const },
+  { id: "5", action: "Xuất dữ liệu lớp", user: "–", role: "teacher", time: "Gần đây", type: "export" as const },
 ];
 
 export default function AdminDashboard() {
@@ -259,15 +87,73 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("users");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  
-  // Modal states
   const [showCreateUser, setShowCreateUser] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<typeof initialUsers[0] | null>(null);
-  const [selectedClass, setSelectedClass] = useState<typeof initialClasses[0] | null>(null);
-  
-  // Data state
-  const [users, setUsers] = useState(initialUsers);
-  const [classes] = useState(initialClasses);
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [selectedClass, setSelectedClass] = useState<ClassRow | null>(null);
+
+  const { data: statsData } = useQuery({
+    queryKey: ["admin-stats"],
+    queryFn: () => api.get<{ totalUsers: number; totalTeachers: number; totalStudents: number; totalClasses: number; totalAssignments: number; activeUsers: number }>("/admin/stats"),
+  });
+
+  const { data: usersList = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery({
+    queryKey: ["admin-users-dashboard"],
+    queryFn: () => api.get<{ id: number; name: string; email: string; role: string; status: string; createdAt: string }[]>("/admin/users"),
+  });
+
+  const { data: classesList = [], isLoading: classesLoading, refetch: refetchClasses } = useQuery({
+    queryKey: ["admin-classes-dashboard"],
+    queryFn: () => api.get<{ id: number; name: string; code?: string; status: string; teacher?: { name: string }; _count?: { members: number; assignments: number } }[]>("/admin/classes"),
+  });
+
+  const users: UserData[] = usersList.map((u) => ({
+    id: String(u.id),
+    name: u.name,
+    email: u.email,
+    role: (u.role || "").toLowerCase() as UserData["role"],
+    status: (u.status || "").toLowerCase() as UserData["status"],
+    classes: 0,
+    createdAt: u.createdAt ? new Date(u.createdAt).toLocaleDateString("vi-VN") : "",
+  }));
+
+  const classes: ClassRow[] = classesList.map((c) => ({
+    id: String(c.id),
+    name: c.name,
+    teacher: c.teacher?.name ?? "–",
+    students: c._count?.members ?? 0,
+    assignments: c._count?.assignments ?? 0,
+    status: (c.status === "ARCHIVED" ? "archived" : "active") as ClassRow["status"],
+    storage: "–",
+  }));
+
+  const stats = [
+    { title: "Tổng người dùng", value: String(statsData?.totalUsers ?? users.length), change: "–", icon: Users, color: "text-primary", bgColor: "bg-primary/10" },
+    { title: "Lớp học", value: String(statsData?.totalClasses ?? classes.length), change: "–", icon: BookOpen, color: "text-success", bgColor: "bg-success/10" },
+    { title: "Bài tập đã giao", value: String(statsData?.totalAssignments ?? classes.reduce((a, c) => a + c.assignments, 0)), change: "–", icon: FileText, color: "text-info", bgColor: "bg-info/10" },
+  ];
+
+  const handleRefetch = () => {
+    refetchUsers();
+    refetchClasses();
+    toast.success("Đã làm mới dữ liệu");
+  };
+
+  const handleUserStatusChange = async (userId: string, newStatus: "active" | "inactive") => {
+    try {
+      await api.patch(`/admin/users/${userId}`, { status: newStatus.toUpperCase() });
+      refetchUsers();
+      if (selectedUser?.id === userId) setSelectedUser({ ...selectedUser, status: newStatus });
+      toast.success(newStatus === "active" ? "Đã kích hoạt tài khoản!" : "Đã khóa tài khoản!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Cập nhật trạng thái thất bại");
+    }
+  };
+
+  const handleClassStatusChange = async (classId: string, newStatus: "active" | "archived") => {
+    await api.patch(`/classes/${classId}`, { status: newStatus === "archived" ? "ARCHIVED" : "ACTIVE" });
+    refetchClasses();
+    if (selectedClass?.id === classId) setSelectedClass({ ...selectedClass, status: newStatus });
+  };
 
   // Filter users
   const filteredUsers = users.filter((user) => {
@@ -340,21 +226,44 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUserStatusChange = (userId: string, newStatus: "active" | "inactive") => {
-    setUsers(users.map(u => u.id === userId ? { ...u, status: newStatus } : u));
-  };
+  function escapeCsv(s: string) {
+    if (/[",\r\n]/.test(String(s))) return `"${String(s).replace(/"/g, '""')}"`;
+    return String(s);
+  }
 
   const handleExportUsers = () => {
-    toast.success("Đã xuất danh sách người dùng!", {
-      description: "File CSV đã được tải xuống",
-    });
+    const header = "STT,Họ tên,Email,Vai trò,Trạng thái,Ngày tạo";
+    const rows = filteredUsers.map((u, i) =>
+      [i + 1, escapeCsv(u.name), escapeCsv(u.email), u.role, u.status, escapeCsv(u.createdAt)].join(",")
+    );
+    const csv = "\uFEFF" + [header, ...rows].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `danh-sach-nguoi-dung-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Đã xuất danh sách người dùng (CSV)!");
   };
 
   const handleExportClasses = () => {
-    toast.success("Đã xuất danh sách lớp học!", {
-      description: "File CSV đã được tải xuống",
-    });
+    const header = "STT,Tên lớp,Giáo viên,Số SV,Số BT,Trạng thái";
+    const rows = filteredClasses.map((c, i) =>
+      [i + 1, escapeCsv(c.name), escapeCsv(c.teacher), c.students, c.assignments, c.status].join(",")
+    );
+    const csv = "\uFEFF" + [header, ...rows].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `danh-sach-lop-hoc-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Đã xuất danh sách lớp học (CSV)!");
   };
+
+  const isLoading = usersLoading || classesLoading;
 
   return (
     <AppLayout userRole="admin">
@@ -363,7 +272,8 @@ export default function AdminDashboard() {
         open={showCreateUser}
         onOpenChange={setShowCreateUser}
         onSuccess={() => {
-          // Refresh user list
+          refetchUsers();
+          toast.success("Đã thêm người dùng. Danh sách đã được làm mới.");
         }}
       />
       <UserDetailModal
@@ -376,6 +286,11 @@ export default function AdminDashboard() {
         open={!!selectedClass}
         onOpenChange={(open) => !open && setSelectedClass(null)}
         classData={selectedClass}
+        onArchive={(classId) => handleClassStatusChange(classId, "archived")}
+        onDeleted={() => {
+          refetchClasses();
+          setSelectedClass(null);
+        }}
       />
 
       <div className="space-y-6">
@@ -388,7 +303,7 @@ export default function AdminDashboard() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" onClick={handleRefetch} title="Làm mới">
               <RefreshCw className="w-4 h-4" />
             </Button>
             <Button onClick={() => setShowCreateUser(true)}>
@@ -398,8 +313,15 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {!isLoading && (
+        <>
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {stats.map((stat, index) => (
             <motion.div
               key={stat.title}
@@ -430,70 +352,6 @@ export default function AdminDashboard() {
             </motion.div>
           ))}
         </div>
-
-        {/* Storage Overview */}
-        <Card className="border-0 shadow-md">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <HardDrive className="w-5 h-5 text-warning" />
-              Tổng quan dung lượng
-            </CardTitle>
-            <CardDescription>Quản lý và giám sát dung lượng lưu trữ</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Tổng dung lượng</span>
-                  <span className="text-sm text-muted-foreground">45.2 / 100 GB</span>
-                </div>
-                <Progress value={45.2} className="h-3" />
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-primary" />
-                    File bài tập: 28.5 GB
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-info" />
-                    File nộp: 16.7 GB
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Lớp dùng nhiều nhất</p>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Thuật toán - KTPM03</span>
-                    <span className="font-medium">2.1 GB</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">KT Phần mềm - KTPM05</span>
-                    <span className="font-medium">1.8 GB</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Lập trình Web - KTPM01</span>
-                    <span className="font-medium">1.2 GB</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-24 h-24 rounded-full border-8 border-primary/20 flex items-center justify-center relative">
-                    <div 
-                      className="absolute inset-0 rounded-full border-8 border-primary"
-                      style={{
-                        clipPath: "polygon(50% 50%, 50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%, 50% 0%)",
-                        transform: "rotate(-90deg)",
-                      }}
-                    />
-                    <span className="text-2xl font-bold">45%</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-2">Đã sử dụng</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -644,7 +502,6 @@ export default function AdminDashboard() {
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleUserStatusChange(user.id, "inactive");
-                                          toast.success("Đã khóa tài khoản!");
                                         }}
                                       >
                                         <Ban className="w-4 h-4 mr-2" />
@@ -656,7 +513,6 @@ export default function AdminDashboard() {
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleUserStatusChange(user.id, "active");
-                                          toast.success("Đã kích hoạt tài khoản!");
                                         }}
                                       >
                                         <CheckCircle2 className="w-4 h-4 mr-2" />
@@ -740,15 +596,38 @@ export default function AdminDashboard() {
                                       Xuất dữ liệu
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
-                                      className="text-destructive"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toast.success("Đã lưu trữ lớp học!");
-                                      }}
-                                    >
-                                      Lưu trữ lớp
-                                    </DropdownMenuItem>
+                                    {cls.status === "active" ? (
+                                      <DropdownMenuItem 
+                                        className="text-destructive"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            await handleClassStatusChange(cls.id, "archived");
+                                            toast.success("Đã lưu trữ lớp học!");
+                                          } catch (err) {
+                                            toast.error(err instanceof Error ? err.message : "Lỗi");
+                                          }
+                                        }}
+                                      >
+                                        Lưu trữ lớp
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem 
+                                        className="text-success"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          try {
+                                            await handleClassStatusChange(cls.id, "active");
+                                            toast.success("Đã kích hoạt lớp học!");
+                                          } catch (err) {
+                                            toast.error(err instanceof Error ? err.message : "Lỗi");
+                                          }
+                                        }}
+                                      >
+                                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                                        Kích hoạt
+                                      </DropdownMenuItem>
+                                    )}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </TableCell>
@@ -804,19 +683,6 @@ export default function AdminDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="p-3 bg-warning/10 rounded-lg border border-warning/20">
-                  <div className="flex items-start gap-2">
-                    <HardDrive className="w-4 h-4 text-warning mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-warning">
-                        Dung lượng sắp đầy
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Đã sử dụng 68% dung lượng lưu trữ. Cân nhắc nâng cấp gói hoặc dọn dẹp file cũ.
-                      </p>
-                    </div>
-                  </div>
-                </div>
                 <div className="p-3 bg-info/10 rounded-lg border border-info/20">
                   <div className="flex items-start gap-2">
                     <Shield className="w-4 h-4 text-info mt-0.5" />
@@ -881,6 +747,8 @@ export default function AdminDashboard() {
             </Card>
           </div>
         </div>
+        </>
+        )}
       </div>
     </AppLayout>
   );

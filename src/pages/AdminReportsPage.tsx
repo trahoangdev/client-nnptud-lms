@@ -112,7 +112,7 @@ export default function AdminReportsPage() {
     
     // Create a simple text-based report for download
     const reportContent = `
-LMS MINI - BÁO CÁO THỐNG KÊ HỆ THỐNG
+NNPTUD LMS - BÁO CÁO THỐNG KÊ HỆ THỐNG
 =====================================
 Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}
 Khoảng thời gian: ${timeRange === 'week' ? '7 ngày qua' : timeRange === 'month' ? '30 ngày qua' : timeRange === 'quarter' ? '3 tháng qua' : '12 tháng qua'}

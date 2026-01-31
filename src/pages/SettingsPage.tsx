@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/context/AuthContext";
 import {
   User,
   Bell,
@@ -37,14 +38,24 @@ interface SettingsPageProps {
 }
 
 export default function SettingsPage({ userRole = "teacher" }: SettingsPageProps) {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Profile state
+
   const [profile, setProfile] = useState({
-    fullName: userRole === "teacher" ? "Nguyễn Văn A" : userRole === "student" ? "Trần Thị B" : "Admin",
-    email: `${userRole}@lms.edu.vn`,
-    phone: "0912 345 678",
+    fullName: user?.name ?? "",
+    email: user?.email ?? "",
+    phone: "",
   });
+
+  useEffect(() => {
+    if (user) {
+      setProfile((p) => ({
+        ...p,
+        fullName: user.name ?? p.fullName,
+        email: user.email ?? p.email,
+      }));
+    }
+  }, [user?.name, user?.email]);
 
   // Notification settings
   const [notifications, setNotifications] = useState({

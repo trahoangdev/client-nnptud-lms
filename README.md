@@ -1,4 +1,4 @@
-# LMS Mini
+# NNPTUD LMS
 
 Ứng dụng quản lý điểm và lớp học.
 

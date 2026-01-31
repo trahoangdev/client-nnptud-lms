@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -49,26 +49,44 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+interface ClassOption {
+  id: number;
+  name: string;
+}
+
 interface CreateAssignmentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   classId?: string;
   className?: string;
+  /** Khi mở từ Dashboard (không có classId), truyền danh sách lớp để chọn */
+  classes?: ClassOption[];
   onSuccess?: (assignmentData: FormValues) => void;
 }
 
-export function CreateAssignmentModal({ 
-  open, 
-  onOpenChange, 
+export function CreateAssignmentModal({
+  open,
+  onOpenChange,
   classId,
   className,
-  onSuccess 
+  classes: classesList = [],
+  onSuccess,
 }: CreateAssignmentModalProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState<string>(classId ?? "");
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [descriptionTab, setDescriptionTab] = useState<"edit" | "preview">("edit");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const effectiveClassId = classId ?? selectedClassId;
+  const needClassSelect = !classId && classesList.length > 0;
+
+  useEffect(() => {
+    if (open) {
+      setSelectedClassId(classId ?? "");
+    }
+  }, [open, classId]);
 
   /** Chỉ vô hiệu hóa ngày trước hôm nay (không vô hiệu hóa hôm nay) */
   const isDateDisabled = useCallback((date: Date) => {
@@ -168,8 +186,8 @@ export function CreateAssignmentModal({
   };
 
   const onSubmit = async (values: FormValues) => {
-    if (!classId) {
-      toast.error("Chưa chọn lớp");
+    if (!effectiveClassId) {
+      toast.error(needClassSelect ? "Vui lòng chọn lớp học" : "Chưa chọn lớp");
       return;
     }
     setIsLoading(true);
@@ -188,7 +206,7 @@ export function CreateAssignmentModal({
 
       await import("@/api/client").then((m) =>
         m.api.post("/assignments", {
-          classId: Number(classId),
+          classId: Number(effectiveClassId),
           title: values.title,
           description: values.description || undefined,
           fileUrl,
@@ -223,7 +241,7 @@ export function CreateAssignmentModal({
             <div>
               <DialogTitle>Giao bài tập mới</DialogTitle>
               <DialogDescription>
-                {className ? `Giao bài cho lớp ${className}` : "Điền thông tin bài tập"}
+                {className ? `Giao bài cho lớp ${className}` : needClassSelect ? "Chọn lớp và điền thông tin bài tập" : "Điền thông tin bài tập"}
               </DialogDescription>
             </div>
           </div>
@@ -231,6 +249,25 @@ export function CreateAssignmentModal({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-4">
+            {needClassSelect && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Lớp học *</label>
+                <select
+                  required
+                  value={selectedClassId}
+                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">-- Chọn lớp --</option>
+                  {classesList.map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="title"

@@ -55,6 +55,14 @@ async function request<T>(
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
+  if (res.status === 401) {
+    clearToken();
+    clearStoredUser();
+    if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+      window.location.href = "/login";
+    }
+  }
+
   if (!res.ok) {
     const errBody = await res.json().catch(() => ({}));
     const message = (errBody as { error?: string }).error || res.statusText;
@@ -85,6 +93,13 @@ export async function apiUpload(path: string, formData: FormData): Promise<{ fil
     headers,
     body: formData,
   });
+  if (res.status === 401) {
+    clearToken();
+    clearStoredUser();
+    if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+      window.location.href = "/login";
+    }
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error || res.statusText);

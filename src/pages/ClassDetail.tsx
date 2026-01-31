@@ -108,7 +108,7 @@ export default function ClassDetail() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const { data: classDetail, isLoading: loadingClass } = useQuery({
+  const { data: classDetail, isLoading: loadingClass, isError: classError, error: classErrorDetail } = useQuery({
     queryKey: ["class", id],
     queryFn: () => api.get<ClassDetailItem>(`/classes/${id}`),
     enabled: !!id,
@@ -296,6 +296,23 @@ export default function ClassDetail() {
       console.error(error);
     }
   };
+
+  if (classError) {
+    const msg = (classErrorDetail as Error)?.message?.toLowerCase() ?? "";
+    const is403 = msg.includes("access") || msg.includes("denied");
+    return (
+      <AppLayout userRole="teacher">
+        <div className="text-center py-24 space-y-2">
+          <p className="text-muted-foreground">
+            {is403 ? "Bạn không có quyền xem lớp này." : "Không thể tải thông tin lớp học."}
+          </p>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/classes">Quay lại danh sách lớp</Link>
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (loadingClass || (id && !classDetail && !loadingClass)) {
     return (

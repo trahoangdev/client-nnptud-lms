@@ -73,7 +73,7 @@ export function Sidebar({ userRole }: SidebarProps) {
           {!isCollapsed && (
             <div className="overflow-hidden">
               <h1 className="text-xl font-bold text-sidebar-foreground whitespace-nowrap">
-                LMS Mini
+                NNPTUD LMS
               </h1>
               <p className="text-xs text-sidebar-muted capitalize">{userRole}</p>
             </div>

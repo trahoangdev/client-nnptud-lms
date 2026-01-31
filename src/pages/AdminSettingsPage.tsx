@@ -56,7 +56,7 @@ export default function AdminSettingsPage() {
 
   // System settings
   const [systemSettings, setSystemSettings] = useState({
-    siteName: "LMS Mini",
+    siteName: "NNPTUD LMS",
     siteUrl: "https://lms.edu.vn",
     adminEmail: "admin@lms.edu.vn",
     maxFileSize: "50",
@@ -84,7 +84,7 @@ export default function AdminSettingsPage() {
     smtpUser: "noreply@lms.edu.vn",
     smtpPassword: "",
     smtpSecure: "tls",
-    fromName: "LMS Mini",
+    fromName: "NNPTUD LMS",
     fromEmail: "noreply@lms.edu.vn",
   });
 

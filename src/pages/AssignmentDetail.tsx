@@ -91,7 +91,7 @@ export default function AssignmentDetail() {
   const [submissionFilter, setSubmissionFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: assignment, isLoading: loadingAssignment } = useQuery({
+  const { data: assignment, isLoading: loadingAssignment, isError: assignmentError, error: assignmentErrorDetail } = useQuery({
     queryKey: ["assignment", id],
     queryFn: () =>
       api.get<AssignmentItem & { class?: { id: number; name: string } }>(`/assignments/${id}`),
@@ -168,6 +168,23 @@ export default function AssignmentDetail() {
         );
     }
   };
+
+  if (assignmentError) {
+    const msg = (assignmentErrorDetail as Error)?.message?.toLowerCase() ?? "";
+    const is403 = msg.includes("access") || msg.includes("denied") || msg.includes("not");
+    return (
+      <AppLayout userRole="teacher">
+        <div className="text-center py-24 space-y-2">
+          <p className="text-muted-foreground">
+            {is403 ? "Bạn không có quyền xem bài tập này." : "Không thể tải thông tin bài tập."}
+          </p>
+          <Link to="/classes" className="text-primary hover:underline text-sm">
+            Quay lại lớp học
+          </Link>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (loadingAssignment || (id && !assignment && !loadingAssignment)) {
     return (

@@ -19,7 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { AppLayout } from "@/components/layout";
 import { Link } from "react-router-dom";
 import { CreateClassModal, CreateAssignmentModal } from "@/components/modals";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { ClassItem } from "@/api";
 import { useAuth } from "@/context/AuthContext";
@@ -47,8 +47,9 @@ export default function TeacherDashboard() {
   const [showCreateClass, setShowCreateClass] = useState(false);
   const [showCreateAssignment, setShowCreateAssignment] = useState(false);
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const { data: classes = [], isLoading, refetch } = useQuery({
+  const { data: classes = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["teacher-classes"],
     queryFn: () => api.get<ClassItem[]>("/classes"),
   });
@@ -80,7 +81,11 @@ export default function TeacherDashboard() {
       <CreateAssignmentModal
         open={showCreateAssignment}
         onOpenChange={setShowCreateAssignment}
-        onSuccess={() => refetch()}
+        classes={classes.map((c) => ({ id: c.id, name: c.name }))}
+        onSuccess={() => {
+          refetch();
+          queryClient.invalidateQueries({ queryKey: ["class-assignments"] });
+        }}
       />
 
       <div className="space-y-6">
@@ -94,7 +99,12 @@ export default function TeacherDashboard() {
             </p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={() => setShowCreateAssignment(true)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowCreateAssignment(true)}
+              disabled={classes.length === 0}
+              title={classes.length === 0 ? "Tạo lớp học trước khi giao bài" : undefined}
+            >
               <FileText className="w-4 h-4 mr-2" />
               Giao bài mới
             </Button>
@@ -105,7 +115,14 @@ export default function TeacherDashboard() {
           </div>
         </div>
 
-        {isLoading ? (
+        {isError ? (
+          <div className="text-center py-12 space-y-2">
+            <p className="text-muted-foreground">Không thể tải dữ liệu. Vui lòng thử lại sau.</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Thử lại
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>

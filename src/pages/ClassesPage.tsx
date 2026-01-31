@@ -56,7 +56,7 @@ export default function ClassesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteClassId, setDeleteClassId] = useState<number | null>(null);
 
-  const { data: classes = [], isLoading, refetch } = useQuery({
+  const { data: classes = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["teacher-classes"],
     queryFn: () => api.get<ClassItem[]>("/classes"),
   });
@@ -128,7 +128,14 @@ export default function ClassesPage() {
           />
         </div>
 
-        {isLoading ? (
+        {isError ? (
+          <div className="text-center py-12 space-y-2">
+            <p className="text-muted-foreground">Không thể tải danh sách lớp. Vui lòng thử lại sau.</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Thử lại
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>

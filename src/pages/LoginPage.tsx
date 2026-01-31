@@ -1,21 +1,24 @@
 import { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { GraduationCap, Mail, Lock, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import { GraduationCap, Mail, Lock, ArrowRight, Eye, EyeOff, Loader2, User, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+
+type LoginRole = "STUDENT" | "TEACHER";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [selectedRole, setSelectedRole] = useState<LoginRole | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { login, user, token } = useAuth();
+  const { login, logout, user, token } = useAuth();
   const navigate = useNavigate();
 
   // Đã đăng nhập -> redirect theo role
@@ -32,10 +35,27 @@ export default function LoginPage() {
       toast.error("Vui lòng nhập email và mật khẩu");
       return;
     }
+    if (!selectedRole) {
+      toast.error("Vui lòng chọn đăng nhập với tư cách Sinh viên hoặc Giảng viên");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const { role } = await login(email.trim(), password);
       const r = (role || "").toUpperCase();
+      const roleMatches =
+        r === selectedRole ||
+        (selectedRole === "TEACHER" && r === "ADMIN"); // Admin có thể chọn Giảng viên
+      if (!roleMatches) {
+        logout(); // Xóa token/user ngay để không bị redirect theo role ở đầu component
+        toast.error(
+          selectedRole === "TEACHER"
+            ? "Tài khoản này không phải Giảng viên. Vui lòng chọn đăng nhập với tư cách Sinh viên."
+            : "Tài khoản này không phải Sinh viên. Vui lòng chọn đăng nhập với tư cách Giảng viên."
+        );
+        setIsSubmitting(false);
+        return;
+      }
       if (r === "TEACHER") navigate("/", { replace: true });
       else if (r === "STUDENT") navigate("/student", { replace: true });
       else if (r === "ADMIN") navigate("/admin", { replace: true });
@@ -94,7 +114,7 @@ export default function LoginPage() {
           </motion.div>
         </div>
         <div className="relative z-10">
-          <p className="text-primary-foreground/50 text-sm">© 2025 NNPTUD LMS. All rights reserved.</p>
+          <p className="text-primary-foreground/50 text-sm">© {new Date().getFullYear()} NNPTUD LMS. All rights reserved.</p>
         </div>
       </div>
 
@@ -152,6 +172,41 @@ export default function LoginPage() {
                     </button>
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Đăng nhập với tư cách</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={selectedRole === "STUDENT" ? "default" : "outline"}
+                      size="lg"
+                      className={cn(
+                        "h-12 gap-2",
+                        selectedRole === "STUDENT" && "ring-2 ring-primary ring-offset-2"
+                      )}
+                      onClick={() => setSelectedRole("STUDENT")}
+                      disabled={isSubmitting}
+                    >
+                      <User className="w-4 h-4" />
+                      Sinh viên
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={selectedRole === "TEACHER" ? "default" : "outline"}
+                      size="lg"
+                      className={cn(
+                        "h-12 gap-2",
+                        selectedRole === "TEACHER" && "ring-2 ring-primary ring-offset-2"
+                      )}
+                      onClick={() => setSelectedRole("TEACHER")}
+                      disabled={isSubmitting}
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      Giảng viên
+                    </Button>
+                  </div>
+                </div>
+
                 <Button className="w-full" size="lg" type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />

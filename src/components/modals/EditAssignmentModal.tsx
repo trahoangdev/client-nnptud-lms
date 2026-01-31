@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownToolbar } from "@/components/MarkdownToolbar";
+import type { AssignmentItem } from "@/api";
 
 const formSchema = z.object({
   title: z.string().min(3, "Tiêu đề phải có ít nhất 3 ký tự").max(200),
@@ -49,28 +50,27 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface CreateAssignmentModalProps {
+interface EditAssignmentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  classId?: string;
+  assignment: AssignmentItem | null;
   className?: string;
-  onSuccess?: (assignmentData: FormValues) => void;
+  onSuccess?: () => void;
 }
 
-export function CreateAssignmentModal({ 
-  open, 
-  onOpenChange, 
-  classId,
+export function EditAssignmentModal({
+  open,
+  onOpenChange,
+  assignment,
   className,
-  onSuccess 
-}: CreateAssignmentModalProps) {
+  onSuccess,
+}: EditAssignmentModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [descriptionTab, setDescriptionTab] = useState<"edit" | "preview">("edit");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  /** Chỉ vô hiệu hóa ngày trước hôm nay (không vô hiệu hóa hôm nay) */
   const isDateDisabled = useCallback((date: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -90,15 +90,31 @@ export function CreateAssignmentModal({
     },
   });
 
+  useEffect(() => {
+    if (open && assignment) {
+      const due = assignment.dueDate ? new Date(assignment.dueDate) : new Date();
+      const h = due.getHours();
+      const m = due.getMinutes();
+      const dueTime = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+      form.reset({
+        title: assignment.title,
+        description: assignment.description ?? "",
+        dueDate: due,
+        dueTime: dueTime,
+        maxScore: assignment.maxScore ?? 10,
+        allowLate: assignment.allowLate ?? false,
+      });
+      setAttachedFile(null);
+      setDescriptionTab("edit");
+    }
+  }, [open, assignment, form]);
+
   const descriptionValue = form.watch("description") || "";
 
-  // Keyboard shortcuts handler for markdown formatting
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
-
     const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-    
     if (isCtrlOrCmd && e.key === "b") {
       e.preventDefault();
       insertMarkdownFormat("**", "**");
@@ -114,28 +130,22 @@ export function CreateAssignmentModal({
   const insertMarkdownFormat = (prefix: string, suffix: string) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
-
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const value = form.getValues("description") || "";
     const selectedText = value.substring(start, end);
-    
     const beforeText = value.substring(0, start);
     const afterText = value.substring(end);
-    
     const newText = selectedText
       ? `${beforeText}${prefix}${selectedText}${suffix}${afterText}`
       : `${beforeText}${prefix}text${suffix}${afterText}`;
-    
     form.setValue("description", newText);
-    
-    // Set cursor position
     setTimeout(() => {
       textarea.focus();
       if (selectedText) {
         textarea.setSelectionRange(end + prefix.length + suffix.length, end + prefix.length + suffix.length);
       } else {
-        textarea.setSelectionRange(start + prefix.length, start + prefix.length + 4); // Select "text"
+        textarea.setSelectionRange(start + prefix.length, start + prefix.length + 4);
       }
     }, 0);
   };
@@ -143,38 +153,27 @@ export function CreateAssignmentModal({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Check file size (20MB max)
       if (file.size > 20 * 1024 * 1024) {
-        toast.error("File quá lớn", {
-          description: "Kích thước file tối đa là 20MB",
-        });
+        toast.error("File quá lớn", { description: "Kích thước file tối đa là 20MB" });
         return;
       }
-      // Check file type
       const allowedTypes = [".pdf", ".docx", ".pptx", ".zip"];
       const ext = "." + file.name.split(".").pop()?.toLowerCase();
       if (!allowedTypes.includes(ext)) {
-        toast.error("Định dạng không hỗ trợ", {
-          description: "Chỉ hỗ trợ file PDF, DOCX, PPTX, ZIP",
-        });
+        toast.error("Định dạng không hỗ trợ", { description: "Chỉ hỗ trợ file PDF, DOCX, PPTX, ZIP" });
         return;
       }
       setAttachedFile(file);
     }
   };
 
-  const removeFile = () => {
-    setAttachedFile(null);
-  };
+  const removeFile = () => setAttachedFile(null);
 
   const onSubmit = async (values: FormValues) => {
-    if (!classId) {
-      toast.error("Chưa chọn lớp");
-      return;
-    }
+    if (!assignment) return;
     setIsLoading(true);
     try {
-      let fileUrl: string | undefined;
+      let fileUrl: string | undefined = assignment.fileUrl ?? undefined;
       if (attachedFile) {
         const { apiUpload } = await import("@/api/client");
         const formData = new FormData();
@@ -186,31 +185,28 @@ export function CreateAssignmentModal({
       const [h, m] = values.dueTime.split(":").map(Number);
       dueDateTime.setHours(h, m, 0, 0);
 
-      await import("@/api/client").then((m) =>
-        m.api.post("/assignments", {
-          classId: Number(classId),
-          title: values.title,
-          description: values.description || undefined,
-          fileUrl,
-          dueDate: dueDateTime.toISOString(),
-          allowLate: values.allowLate,
-          maxScore: values.maxScore,
-        })
-      );
-      toast.success("Tạo bài tập thành công!", {
-        description: `Bài tập "${values.title}" đã được giao cho lớp`,
+      const { api } = await import("@/api/client");
+      await api.patch(`/assignments/${assignment.id}`, {
+        title: values.title,
+        description: values.description || undefined,
+        fileUrl,
+        dueDate: dueDateTime.toISOString(),
+        allowLate: values.allowLate,
+        maxScore: values.maxScore,
       });
-      onSuccess?.(values);
-      form.reset();
-      setAttachedFile(null);
-      setDescriptionTab("edit");
+      toast.success("Cập nhật bài tập thành công!", {
+        description: `Bài tập "${values.title}" đã được lưu`,
+      });
+      onSuccess?.();
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Tạo bài tập thất bại");
+      toast.error(err instanceof Error ? err.message : "Cập nhật bài tập thất bại");
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (!assignment) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -221,9 +217,9 @@ export function CreateAssignmentModal({
               <FileText className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <DialogTitle>Giao bài tập mới</DialogTitle>
+              <DialogTitle>Chỉnh sửa bài tập</DialogTitle>
               <DialogDescription>
-                {className ? `Giao bài cho lớp ${className}` : "Điền thông tin bài tập"}
+                {className ? `Cập nhật bài tập trong lớp ${className}` : "Sửa thông tin bài tập"}
               </DialogDescription>
             </div>
           </div>
@@ -238,17 +234,13 @@ export function CreateAssignmentModal({
                 <FormItem>
                   <FormLabel>Tiêu đề bài tập *</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="VD: Bài tập React Hooks" 
-                      {...field} 
-                    />
+                    <Input placeholder="VD: Bài tập React Hooks" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Description with Markdown Preview */}
             <FormField
               control={form.control}
               name="description"
@@ -256,9 +248,7 @@ export function CreateAssignmentModal({
                 <FormItem>
                   <div className="flex items-center justify-between">
                     <FormLabel>Mô tả / Yêu cầu</FormLabel>
-                    <span className="text-xs text-muted-foreground">
-                      Hỗ trợ Markdown
-                    </span>
+                    <span className="text-xs text-muted-foreground">Hỗ trợ Markdown</span>
                   </div>
                   <Tabs value={descriptionTab} onValueChange={(v) => setDescriptionTab(v as "edit" | "preview")}>
                     <TabsList className="grid w-full grid-cols-2 h-9">
@@ -278,29 +268,13 @@ export function CreateAssignmentModal({
                         onChange={field.onChange}
                       />
                       <FormControl>
-                        <Textarea 
+                        <Textarea
                           ref={(el) => {
                             textareaRef.current = el;
-                            // Also pass to react-hook-form ref
-                            if (typeof field.ref === 'function') {
-                              field.ref(el);
-                            }
+                            if (typeof field.ref === "function") field.ref(el);
                           }}
                           onKeyDown={handleKeyDown}
-                          placeholder={`Mô tả chi tiết yêu cầu bài tập...
-
-Ví dụ:
-## Mục tiêu
-Nắm vững cách sử dụng React Hooks
-
-## Yêu cầu
-1. Tạo ứng dụng Todo List
-2. Sử dụng useState và useEffect
-
-\`\`\`javascript
-// Ví dụ code
-const [count, setCount] = useState(0);
-\`\`\``}
+                          placeholder="Mô tả chi tiết yêu cầu bài tập..."
                           className="resize-none font-mono text-sm"
                           rows={8}
                           name={field.name}
@@ -315,9 +289,7 @@ const [count, setCount] = useState(0);
                         {descriptionValue ? (
                           <MarkdownContent content={descriptionValue} />
                         ) : (
-                          <p className="text-sm text-muted-foreground italic">
-                            Chưa có nội dung để xem trước...
-                          </p>
+                          <p className="text-sm text-muted-foreground italic">Chưa có nội dung để xem trước...</p>
                         )}
                       </ScrollArea>
                     </TabsContent>
@@ -327,7 +299,6 @@ const [count, setCount] = useState(0);
               )}
             />
 
-            {/* File attachment */}
             <div className="space-y-2">
               <FormLabel>File đề bài (tùy chọn)</FormLabel>
               {attachedFile ? (
@@ -339,35 +310,41 @@ const [count, setCount] = useState(0);
                       {(attachedFile.size / 1024 / 1024).toFixed(2)} MB
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={removeFile}
-                    className="shrink-0"
-                  >
+                  <Button type="button" variant="ghost" size="icon" onClick={removeFile} className="shrink-0">
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-6 h-6 text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground">
-                      Kéo thả hoặc <span className="text-primary font-medium">chọn file</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      PDF, DOCX, PPTX, ZIP (tối đa 20MB)
-                    </p>
+              ) : assignment.fileUrl ? (
+                <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                  <File className="w-8 h-8 text-primary" />
+                  <div className="flex-1 min-w-0">
+                    <a
+                      href={assignment.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-primary hover:underline truncate block"
+                    >
+                      File hiện tại (mở link)
+                    </a>
+                    <p className="text-xs text-muted-foreground">Chọn file mới bên dưới để thay thế</p>
                   </div>
-                  <input 
-                    type="file" 
-                    className="hidden" 
-                    accept=".pdf,.docx,.pptx,.zip"
-                    onChange={handleFileChange}
-                  />
-                </label>
-              )}
+                </div>
+              ) : null}
+              <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-6 h-6 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Kéo thả hoặc <span className="text-primary font-medium">chọn file</span> để thay thế
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, PPTX, ZIP (tối đa 20MB)</p>
+                </div>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.docx,.pptx,.zip"
+                  onChange={handleFileChange}
+                />
+              </label>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -383,16 +360,9 @@ const [count, setCount] = useState(0);
                           <Button
                             type="button"
                             variant="outline"
-                            className={cn(
-                              "pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
+                            className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}
                           >
-                            {field.value ? (
-                              format(field.value, "dd/MM/yyyy", { locale: vi })
-                            ) : (
-                              <span>Chọn ngày</span>
-                            )}
+                            {field.value ? format(field.value, "dd/MM/yyyy", { locale: vi }) : "Chọn ngày"}
                             <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
@@ -416,7 +386,6 @@ const [count, setCount] = useState(0);
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
                 name="dueTime"
@@ -424,10 +393,7 @@ const [count, setCount] = useState(0);
                   <FormItem>
                     <FormLabel>Giờ hết hạn *</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="time"
-                        {...field} 
-                      />
+                      <Input type="time" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -443,7 +409,7 @@ const [count, setCount] = useState(0);
                   <FormItem>
                     <FormLabel>Điểm tối đa</FormLabel>
                     <FormControl>
-                      <Input 
+                      <Input
                         type="number"
                         min={1}
                         max={100}
@@ -455,7 +421,6 @@ const [count, setCount] = useState(0);
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
                 name="allowLate"
@@ -463,15 +428,10 @@ const [count, setCount] = useState(0);
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                     <div className="space-y-0.5">
                       <FormLabel>Cho phép nộp muộn</FormLabel>
-                      <FormDescription className="text-xs">
-                        Học sinh có thể nộp sau deadline
-                      </FormDescription>
+                      <FormDescription className="text-xs">Học sinh có thể nộp sau deadline</FormDescription>
                     </div>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                   </FormItem>
                 )}
@@ -479,17 +439,12 @@ const [count, setCount] = useState(0);
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isLoading}
-              >
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
                 Hủy
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Giao bài tập
+                Lưu thay đổi
               </Button>
             </div>
           </form>

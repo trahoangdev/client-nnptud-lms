@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { HomeOrDashboard } from "@/components/HomeOrDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -39,15 +40,8 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<LoginPage />} />
 
-            {/* Teacher */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute allowedRoles={["teacher"]}>
-                  <TeacherDashboard />
-                </ProtectedRoute>
-              }
-            />
+            {/* Trang chủ: Landing khi chưa đăng nhập, Dashboard theo vai trò khi đã đăng nhập */}
+            <Route path="/" element={<HomeOrDashboard />} />
             <Route
               path="/classes"
               element={

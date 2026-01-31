@@ -11,13 +11,25 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { AppLayout } from "@/components/layout";
 import { CreateClassModal } from "@/components/modals";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { ClassItem } from "@/api";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const COLORS = [
   "from-primary to-primary/70",
@@ -39,12 +51,24 @@ const item = {
 };
 
 export default function ClassesPage() {
+  const queryClient = useQueryClient();
   const [showCreateClass, setShowCreateClass] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [deleteClassId, setDeleteClassId] = useState<number | null>(null);
 
   const { data: classes = [], isLoading, refetch } = useQuery({
     queryKey: ["teacher-classes"],
     queryFn: () => api.get<ClassItem[]>("/classes"),
+  });
+
+  const deleteClassMutation = useMutation({
+    mutationFn: (classId: number) => api.delete(`/classes/${classId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teacher-classes"] });
+      setDeleteClassId(null);
+      toast.success("Đã xóa lớp học");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const filteredClasses = classes.filter(
@@ -60,6 +84,26 @@ export default function ClassesPage() {
         onOpenChange={setShowCreateClass}
         onSuccess={() => refetch()}
       />
+
+      <AlertDialog open={!!deleteClassId} onOpenChange={(open) => !open && setDeleteClassId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa lớp học?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Lớp và toàn bộ bài tập, điểm, thành viên sẽ bị xóa. Không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteClassId != null && deleteClassMutation.mutate(deleteClassId)}
+            >
+              {deleteClassMutation.isPending ? "Đang xóa..." : "Xóa lớp"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -127,6 +171,14 @@ export default function ClassesPage() {
                                 <Settings className="w-4 h-4 mr-2" />
                                 Xem chi tiết
                               </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setDeleteClassId(cls.id)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Xóa lớp
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

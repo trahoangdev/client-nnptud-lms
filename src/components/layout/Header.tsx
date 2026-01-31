@@ -1,4 +1,4 @@
-import { Bell, Search, Users, GraduationCap, Shield, LogOut } from "lucide-react";
+import { Bell, Search, LogOut, Settings, Home } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,9 @@ export function Header({ userRole, userName: propUserName, userEmail: propUserEm
     logout();
     navigate("/login", { replace: true });
   };
+
+  const dashboardPath = userRole === "teacher" ? "/" : userRole === "student" ? "/student" : "/admin";
+  const settingsPath = userRole === "teacher" ? "/settings" : userRole === "student" ? "/student/settings" : "/admin/settings";
 
   return (
     <header className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
@@ -111,25 +114,16 @@ export function Header({ userRole, userName: propUserName, userEmail: propUserEm
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs text-muted-foreground">
-                Chuyển đổi vai trò (Dev)
-              </DropdownMenuLabel>
               <DropdownMenuItem asChild>
-                <Link to="/">
-                  <GraduationCap className="w-4 h-4 mr-2" />
-                  Giảng viên
+                <Link to={dashboardPath}>
+                  <Home className="w-4 h-4 mr-2" />
+                  Trang chủ
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link to="/student">
-                  <Users className="w-4 h-4 mr-2" />
-                  Sinh viên
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/admin">
-                  <Shield className="w-4 h-4 mr-2" />
-                  Quản trị viên
+                <Link to={settingsPath}>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Cài đặt
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

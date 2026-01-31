@@ -162,7 +162,11 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              <div className="mt-6 pt-6 border-t text-center">
+              <div className="mt-6 pt-6 border-t space-y-3 text-center">
+                {/* <p className="text-xs text-muted-foreground">
+                  Sau khi chạy <code className="bg-muted px-1 rounded">npm run seed</code> trên server, thử:{" "}
+                  <span className="font-mono text-foreground">student@nnptud.edu.vn</span> / <span className="font-mono text-foreground">password123</span>
+                </p> */}
                 <p className="text-sm text-muted-foreground">
                   Học sinh mới? Vào mục <strong>Lớp học</strong> → <strong>Tham gia lớp</strong> và nhập mã lớp.
                 </p>

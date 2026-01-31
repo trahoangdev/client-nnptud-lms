@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   User,
@@ -36,20 +36,32 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AppLayout } from "@/components/layout";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 
 export default function StudentSettingsPage() {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Profile state
+
   const [profile, setProfile] = useState({
-    fullName: "Trần Thị B",
-    email: "tranthib@lms.edu.vn",
-    phone: "0912 345 678",
-    studentId: "20200002",
-    faculty: "Công nghệ thông tin",
-    class: "KTPM01",
+    fullName: user?.name ?? "",
+    email: user?.email ?? "",
+    phone: "",
+    studentId: user?.id != null ? String(user.id) : "",
+    faculty: "",
+    class: "",
   });
+
+  useEffect(() => {
+    if (user) {
+      setProfile((p) => ({
+        ...p,
+        fullName: user.name ?? p.fullName,
+        email: user.email ?? p.email,
+        studentId: user.id != null ? String(user.id) : p.studentId,
+      }));
+    }
+  }, [user?.id, user?.name, user?.email]);
 
   // Notification settings - student specific
   const [notifications, setNotifications] = useState({

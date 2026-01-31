@@ -70,3 +70,19 @@ export interface CommentItem {
   submissionId?: number | null;
   assignmentId?: number | null;
 }
+
+/** Response from GET /student/assignments */
+export interface StudentAssignmentWithSubmission {
+  assignment: {
+    id: number;
+    title: string;
+    description?: string | null;
+    fileUrl?: string | null;
+    dueDate?: string | null;
+    allowLate?: boolean;
+    maxScore?: number;
+    classId: number;
+  };
+  class: { id: number; name: string };
+  mySubmission: SubmissionItem | null;
+}

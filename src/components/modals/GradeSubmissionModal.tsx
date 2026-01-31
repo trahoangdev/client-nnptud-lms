@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { format, parseISO } from "date-fns";
+import { vi } from "date-fns/locale";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/api/client";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +40,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { CommentsSection } from "@/components/CommentsSection";
 
 const formSchema = z.object({
   score: z.number().min(0, "Điểm không thể âm"),
@@ -71,6 +76,7 @@ interface GradeSubmissionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   submission: Submission | null;
+  submissionId?: number;
   assignmentTitle: string;
   maxScore: number;
   comments?: Comment[];
@@ -81,11 +87,13 @@ export function GradeSubmissionModal({
   open,
   onOpenChange,
   submission,
+  submissionId,
   assignmentTitle,
   maxScore,
   comments = [],
   onSuccess,
 }: GradeSubmissionModalProps) {
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [newComment, setNewComment] = useState("");
 
@@ -101,12 +109,14 @@ export function GradeSubmissionModal({
   });
 
   // Reset form when submission changes
-  if (submission && form.getValues("score") !== (submission.score ?? 0)) {
-    form.reset({
-      score: submission.score ?? 0,
-      feedback: submission.feedback ?? "",
-    });
-  }
+  useEffect(() => {
+    if (submission) {
+      form.reset({
+        score: submission.score ?? 0,
+        feedback: submission.feedback ?? "",
+      });
+    }
+  }, [submission?.id, submission?.score, submission?.feedback, form]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -143,23 +153,36 @@ export function GradeSubmissionModal({
 
   const onSubmit = async (values: FormValues) => {
     if (!submission) return;
-    
+
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    toast.success("Chấm điểm thành công!", {
-      description: `${submission.studentName}: ${values.score}/${maxScore}`,
-    });
-    
-    onSuccess?.({
-      submissionId: submission.id,
-      score: values.score,
-      feedback: values.feedback,
-    });
-    
-    setIsLoading(false);
+    try {
+      await api.post("/grades", {
+        submissionId: Number(submission.id),
+        score: values.score,
+      });
+      if (values.feedback?.trim()) {
+        await api.post("/comments", {
+          submissionId: Number(submission.id),
+          content: values.feedback.trim(),
+        });
+      }
+      toast.success("Chấm điểm thành công!", {
+        description: `${submission.studentName}: ${values.score}/${maxScore}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["assignment-submissions"] });
+      queryClient.invalidateQueries({ queryKey: ["assignment"] });
+      onSuccess?.({
+        submissionId: submission.id,
+        score: values.score,
+        feedback: values.feedback,
+      });
+    } catch (err) {
+      toast.error("Lưu điểm thất bại", {
+        description: err instanceof Error ? err.message : "Vui lòng thử lại.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSendComment = () => {
@@ -171,24 +194,29 @@ export function GradeSubmissionModal({
 
   if (!submission) return null;
 
+  const displayFileName =
+    submission.fileName ||
+    `${submission.studentName.replace(/\s/g, "")}_${submission.studentId}.zip`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[min(92vw,920px)] max-h-[90vh] overflow-hidden flex flex-col gap-0">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
               <FileText className="w-5 h-5 text-primary" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <DialogTitle>Chấm điểm bài nộp</DialogTitle>
-              <DialogDescription>{assignmentTitle}</DialogDescription>
+              <DialogDescription className="truncate" title={assignmentTitle}>
+                {assignmentTitle}
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-[calc(90vh-200px)] pr-4">
-            <div className="space-y-6">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-2 -mr-2">
+          <div className="space-y-6 py-1">
               {/* Student Info */}
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
                 <div className="flex items-center gap-3">
@@ -209,7 +237,7 @@ export function GradeSubmissionModal({
                   {getStatusBadge(submission.status)}
                   {submission.submittedAt && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      {submission.submittedAt}
+                      {format(parseISO(submission.submittedAt), "dd/MM/yyyy HH:mm", { locale: vi })}
                     </p>
                   )}
                 </div>
@@ -219,21 +247,33 @@ export function GradeSubmissionModal({
               {submission.fileUrl && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium">File bài nộp</h4>
-                  <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <div className="flex items-center gap-3 p-3 bg-muted rounded-lg min-w-0">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                       <FileText className="w-5 h-5 text-primary" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {submission.fileName || `${submission.studentName.replace(/\s/g, '')}_${submission.studentId}.zip`}
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <p
+                        className="text-sm font-medium truncate"
+                        title={displayFileName}
+                      >
+                        {displayFileName}
                       </p>
                       {submission.fileSize && (
-                        <p className="text-xs text-muted-foreground">{submission.fileSize}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {submission.fileSize}
+                        </p>
                       )}
                     </div>
-                    <Button variant="outline" size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      Tải về
+                    <Button variant="outline" size="sm" asChild className="flex-shrink-0">
+                      <a
+                        href={submission.fileUrl}
+                        download={submission.fileName || undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Tải về
+                      </a>
                     </Button>
                   </div>
                 </div>
@@ -243,31 +283,34 @@ export function GradeSubmissionModal({
 
               {/* Grading Form */}
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-4 min-w-0 overflow-hidden"
+                >
                   <FormField
                     control={form.control}
                     name="score"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="min-w-0">
                         <FormLabel>Điểm số</FormLabel>
                         <FormControl>
-                          <div className="flex items-center gap-3">
-                            <Input
-                              type="number"
-                              min={0}
-                              max={maxScore}
-                              step={0.5}
-                              className={cn(
-                                "w-24 h-12 text-center text-2xl font-bold",
-                                field.value !== null && getScoreColor(field.value)
-                              )}
-                              {...field}
-                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                            />
-                            <span className="text-xl text-muted-foreground">/ {maxScore}</span>
-                            
-                            {/* Quick score buttons */}
-                            <div className="flex-1 flex gap-1 flex-wrap">
+                          <div className="flex flex-wrap items-center gap-3 min-w-0">
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <Input
+                                type="number"
+                                min={0}
+                                max={maxScore}
+                                step={0.5}
+                                className={cn(
+                                  "w-20 h-11 text-center text-xl font-bold ring-inset max-w-full",
+                                  field.value !== null && getScoreColor(field.value)
+                                )}
+                                {...field}
+                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                              />
+                              <span className="text-lg text-muted-foreground flex-shrink-0">/ {maxScore}</span>
+                            </div>
+                            <div className="flex gap-1.5 flex-wrap">
                               {[maxScore, maxScore * 0.8, maxScore * 0.6, maxScore * 0.5, 0].map((score) => (
                                 <Button
                                   key={score}
@@ -275,7 +318,7 @@ export function GradeSubmissionModal({
                                   variant="outline"
                                   size="sm"
                                   className={cn(
-                                    "h-8 px-3",
+                                    "h-8 px-3 flex-shrink-0",
                                     field.value === score && "bg-primary text-primary-foreground"
                                   )}
                                   onClick={() => field.onChange(score)}
@@ -295,12 +338,12 @@ export function GradeSubmissionModal({
                     control={form.control}
                     name="feedback"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="min-w-0">
                         <FormLabel>Nhận xét chung</FormLabel>
                         <FormControl>
                           <Textarea
                             placeholder="Viết nhận xét về bài làm của học sinh..."
-                            className="resize-none"
+                            className="resize-none w-full max-w-full min-w-0 ring-inset box-border"
                             rows={3}
                             {...field}
                           />
@@ -320,69 +363,73 @@ export function GradeSubmissionModal({
 
               <Separator />
 
-              {/* Comments Section */}
-              <div className="space-y-4">
-                <h4 className="text-sm font-medium flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  Trao đổi ({comments.length})
-                </h4>
-
-                {comments.length > 0 && (
-                  <div className="space-y-3 max-h-48 overflow-auto">
-                    {comments.map((comment) => (
-                      <div key={comment.id} className="flex gap-3">
-                        <Avatar className="w-8 h-8 flex-shrink-0">
-                          <AvatarFallback
-                            className={cn(
-                              "text-xs",
-                              comment.role === "teacher"
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted"
-                            )}
-                          >
-                            {comment.author.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{comment.author}</span>
-                            {comment.role === "teacher" && (
-                              <Badge variant="secondary" className="text-xs py-0">
-                                Giáo viên
-                              </Badge>
-                            )}
+              {/* Comments Section - real API when submissionId provided */}
+              {submissionId != null ? (
+                <CommentsSection
+                  submissionId={submissionId}
+                  title="Trao đổi"
+                  className="border-0"
+                />
+              ) : (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    Trao đổi ({comments.length})
+                  </h4>
+                  {comments.length > 0 && (
+                    <div className="space-y-3 max-h-48 overflow-auto">
+                      {comments.map((comment) => (
+                        <div key={comment.id} className="flex gap-3">
+                          <Avatar className="w-8 h-8 flex-shrink-0">
+                            <AvatarFallback
+                              className={cn(
+                                "text-xs",
+                                comment.role === "teacher"
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted"
+                              )}
+                            >
+                              {comment.author.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{comment.author}</span>
+                              {comment.role === "teacher" && (
+                                <Badge variant="secondary" className="text-xs py-0">
+                                  Giáo viên
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm mt-1">{comment.content}</p>
+                            <span className="text-xs text-muted-foreground">
+                              {comment.createdAt}
+                            </span>
                           </div>
-                          <p className="text-sm mt-1">{comment.content}</p>
-                          <span className="text-xs text-muted-foreground">
-                            {comment.createdAt}
-                          </span>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="Viết nhận xét..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      className="resize-none flex-1"
+                      rows={2}
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      onClick={handleSendComment}
+                      disabled={!newComment.trim()}
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
                   </div>
-                )}
-
-                {/* New comment input */}
-                <div className="flex gap-2">
-                  <Textarea
-                    placeholder="Viết nhận xét..."
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    className="resize-none flex-1"
-                    rows={2}
-                  />
-                  <Button
-                    type="button"
-                    size="icon"
-                    onClick={handleSendComment}
-                    disabled={!newComment.trim()}
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
                 </div>
-              </div>
-            </div>
-          </ScrollArea>
+              )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

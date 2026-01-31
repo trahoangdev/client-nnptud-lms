@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -20,83 +20,80 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AppLayout } from "@/components/layout";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/api/client";
+import type { ClassDetailItem } from "@/api";
+import type { StudentAssignmentWithSubmission } from "@/api";
+import { Loader2 } from "lucide-react";
+import { differenceInDays, parseISO } from "date-fns";
 
-// Mock data
-const classData = {
-  id: "1",
-  name: "Lập trình Web - KTPM01",
-  code: "WEB2025A",
-  description: "Khóa học lập trình web với React, TypeScript và Node.js. Học viên sẽ được thực hành xây dựng các ứng dụng web từ cơ bản đến nâng cao.",
-  teacher: "Nguyễn Văn A",
-  teacherEmail: "nguyenvana@lms.edu.vn",
-  totalStudents: 32,
-  totalAssignments: 5,
-  completedAssignments: 3,
-  averageScore: 8.83,
-};
+function getStatus(item: StudentAssignmentWithSubmission): "not_submitted" | "submitted" | "graded" | "late" {
+  const sub = item.mySubmission;
+  const due = item.assignment.dueDate ? parseISO(item.assignment.dueDate) : null;
+  const now = new Date();
+  if (sub?.grade) return "graded";
+  if (sub) {
+    if (due && sub.status === "LATE_SUBMITTED") return "late";
+    return "submitted";
+  }
+  if (due && now > due) return "late";
+  return "not_submitted";
+}
 
-const assignments = [
-  {
-    id: "1",
-    title: "Bài tập React Hooks",
-    dueDate: "2025-01-30",
-    dueTime: "23:59",
-    status: "not_submitted",
-    daysLeft: 2,
-    maxScore: 10,
-  },
-  {
-    id: "2",
-    title: "TypeScript Basics",
-    dueDate: "2025-01-25",
-    dueTime: "23:59",
-    status: "graded",
-    daysLeft: -3,
-    maxScore: 10,
-    score: 9,
-  },
-  {
-    id: "3",
-    title: "Component Styling",
-    dueDate: "2025-01-20",
-    dueTime: "23:59",
-    status: "graded",
-    daysLeft: -8,
-    maxScore: 10,
-    score: 8.5,
-  },
-  {
-    id: "4",
-    title: "State Management",
-    dueDate: "2025-01-15",
-    dueTime: "23:59",
-    status: "graded",
-    daysLeft: -13,
-    maxScore: 10,
-    score: 9,
-  },
-  {
-    id: "5",
-    title: "REST API Integration",
-    dueDate: "2025-02-05",
-    dueTime: "23:59",
-    status: "not_submitted",
-    daysLeft: 8,
-    maxScore: 10,
-  },
-];
-
-const classmates = [
-  { id: "1", name: "Lê Thị C", avatar: "L" },
-  { id: "2", name: "Nguyễn Văn D", avatar: "N" },
-  { id: "3", name: "Phạm Thị E", avatar: "P" },
-  { id: "4", name: "Hoàng Văn F", avatar: "H" },
-  { id: "5", name: "Trần Văn G", avatar: "T" },
-];
+function getDaysLeft(item: StudentAssignmentWithSubmission): number {
+  const due = item.assignment.dueDate ? parseISO(item.assignment.dueDate) : null;
+  if (!due) return 999;
+  return differenceInDays(due, new Date());
+}
 
 export default function StudentClassDetailPage() {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState("assignments");
+
+  const { data: classDetail, isLoading: loadingClass, isError: classError, error: classErrorDetail } = useQuery({
+    queryKey: ["class", id],
+    queryFn: () => api.get<ClassDetailItem>(`/classes/${id}`),
+    enabled: !!id,
+  });
+
+  const { data: myAssignmentsList = [] } = useQuery({
+    queryKey: ["student-assignments"],
+    queryFn: () => api.get<StudentAssignmentWithSubmission[]>("/student/assignments"),
+  });
+
+  const classAssignmentsWithStatus = useMemo(() => {
+    if (!classDetail?.assignments || !id) return [];
+    const byClass = myAssignmentsList.filter((x) => String(x.class.id) === id);
+    const subMap = new Map<number, StudentAssignmentWithSubmission>();
+    byClass.forEach((x) => subMap.set(x.assignment.id, x));
+    return classDetail.assignments.map((a) => {
+      const item = subMap.get(a.id);
+      const status = item ? getStatus(item) : "not_submitted";
+      const daysLeft = item ? getDaysLeft(item) : (a.dueDate ? differenceInDays(parseISO(a.dueDate), new Date()) : 999);
+      const score = item?.mySubmission?.grade?.score ?? null;
+      return {
+        id: String(a.id),
+        title: a.title,
+        dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString("vi-VN") : "",
+        dueTime: a.dueDate ? new Date(a.dueDate).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "23:59",
+        status,
+        daysLeft,
+        maxScore: a.maxScore ?? 10,
+        score,
+      };
+    });
+  }, [classDetail, id, myAssignmentsList]);
+
+  const pendingAssignments = classAssignmentsWithStatus.filter((a) => a.status === "not_submitted" && a.daysLeft >= 0);
+  const completedAssignments = classAssignmentsWithStatus.filter((a) => a.status === "graded" || a.status === "submitted");
+  const gradedAssignments = classAssignmentsWithStatus.filter((a) => a.status === "graded");
+
+  const completedCount = classAssignmentsWithStatus.filter((a) => a.status === "graded" || a.status === "submitted").length;
+  const totalCount = classAssignmentsWithStatus.length;
+  const averageScore =
+    gradedAssignments.length > 0
+      ? gradedAssignments.reduce((s, a) => s + (a.score ?? 0), 0) / gradedAssignments.length
+      : 0;
 
   const getDaysLeftColor = (days: number) => {
     if (days < 0) return "text-muted-foreground";
@@ -105,7 +102,7 @@ export default function StudentClassDetailPage() {
     return "text-muted-foreground";
   };
 
-  const getStatusBadge = (status: string, score?: number, maxScore?: number) => {
+  const getStatusBadge = (status: string, score?: number | null, maxScore?: number) => {
     switch (status) {
       case "submitted":
         return (
@@ -118,7 +115,7 @@ export default function StudentClassDetailPage() {
         return (
           <Badge className="bg-success/10 text-success border-0">
             <CheckCircle2 className="w-3 h-3 mr-1" />
-            {score}/{maxScore}
+            {score != null && maxScore != null ? `${score}/${maxScore}` : "Đã chấm"}
           </Badge>
         );
       case "late":
@@ -129,19 +126,59 @@ export default function StudentClassDetailPage() {
           </Badge>
         );
       default:
-        return (
-          <Badge variant="outline">Chưa nộp</Badge>
-        );
+        return <Badge variant="outline">Chưa nộp</Badge>;
     }
   };
 
-  const pendingAssignments = assignments.filter(a => a.status === "not_submitted" && a.daysLeft >= 0);
-  const completedAssignments = assignments.filter(a => a.status === "graded" || a.status === "submitted");
+  const members = classDetail?.members ?? [];
+  const teacher = classDetail?.teacher;
+
+  if (classError) {
+    const is403 = (classErrorDetail as Error)?.message?.toLowerCase().includes("access") || (classErrorDetail as Error)?.message?.toLowerCase().includes("denied");
+    return (
+      <AppLayout userRole="student">
+        <div className="text-center py-24 space-y-2">
+          <p className="text-muted-foreground">
+            {is403 ? "Bạn không có quyền xem lớp này." : "Không thể tải thông tin lớp học."}
+          </p>
+          <Link to="/student/classes" className="text-primary hover:underline text-sm">
+            Quay lại danh sách lớp
+          </Link>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (loadingClass || (id && !classDetail && !loadingClass)) {
+    return (
+      <AppLayout userRole="student">
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!classDetail) {
+    return (
+      <AppLayout userRole="student">
+        <div className="text-center py-24 text-muted-foreground">Không tìm thấy lớp học.</div>
+      </AppLayout>
+    );
+  }
+
+  const classData = {
+    name: classDetail.name,
+    code: classDetail.code,
+    description: classDetail.description ?? "",
+    teacher: teacher?.name ?? "–",
+    teacherEmail: (teacher as { email?: string } | undefined)?.email ?? "",
+    totalStudents: classDetail.students ?? members.length,
+  };
 
   return (
     <AppLayout userRole="student">
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col gap-4">
           <Link
             to="/student/classes"
@@ -157,7 +194,7 @@ export default function StudentClassDetailPage() {
                 <BookOpen className="w-8 h-8 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold">{classData.name}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">{classDetail.name}</h1>
                 <p className="text-muted-foreground mt-1 max-w-2xl">{classData.description}</p>
                 <div className="flex flex-wrap items-center gap-4 mt-3">
                   <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -168,44 +205,37 @@ export default function StudentClassDetailPage() {
                     <Users className="w-4 h-4" />
                     {classData.totalStudents} học viên
                   </span>
-                  <span className="text-sm text-muted-foreground font-mono">
-                    Mã: {classData.code}
-                  </span>
+                  <span className="text-sm text-muted-foreground font-mono">Mã: {classData.code}</span>
                 </div>
               </div>
             </div>
 
-            {/* Stats */}
             <div className="flex items-center gap-4">
               <div className="text-center px-4 py-2 bg-muted rounded-lg">
-                <p className="text-2xl font-bold">{classData.completedAssignments}/{classData.totalAssignments}</p>
+                <p className="text-2xl font-bold">
+                  {completedCount}/{totalCount || 1}
+                </p>
                 <p className="text-xs text-muted-foreground">Hoàn thành</p>
               </div>
               <div className="text-center px-4 py-2 bg-muted rounded-lg">
-                <p className="text-2xl font-bold text-success">{classData.averageScore}</p>
+                <p className="text-2xl font-bold text-success">{averageScore.toFixed(2)}</p>
                 <p className="text-xs text-muted-foreground">Điểm TB</p>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Progress */}
         <Card className="border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium">Tiến độ hoàn thành</span>
               <span className="text-sm text-muted-foreground">
-                {classData.completedAssignments}/{classData.totalAssignments} bài tập
+                {completedCount}/{totalCount || 1} bài tập
               </span>
             </div>
-            <Progress 
-              value={(classData.completedAssignments / classData.totalAssignments) * 100} 
-              className="h-2" 
-            />
+            <Progress value={totalCount ? (completedCount / totalCount) * 100 : 0} className="h-2" />
           </CardContent>
         </Card>
 
-        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full justify-start bg-muted/50 p-1">
             <TabsTrigger value="assignments" className="gap-2">
@@ -225,14 +255,8 @@ export default function StudentClassDetailPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Assignments Tab */}
           <TabsContent value="assignments" className="mt-6">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-4"
-            >
-              {/* Pending */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               {pendingAssignments.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -269,7 +293,6 @@ export default function StudentClassDetailPage() {
                 </div>
               )}
 
-              {/* Completed */}
               {completedAssignments.length > 0 && (
                 <div className="space-y-3">
                   <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -286,9 +309,7 @@ export default function StudentClassDetailPage() {
                             </div>
                             <div className="flex-1">
                               <h3 className="font-semibold">{assignment.title}</h3>
-                              <span className="text-sm text-muted-foreground">
-                                Hạn: {assignment.dueDate}
-                              </span>
+                              <span className="text-sm text-muted-foreground">Hạn: {assignment.dueDate}</span>
                             </div>
                             {getStatusBadge(assignment.status, assignment.score, assignment.maxScore)}
                           </div>
@@ -298,25 +319,24 @@ export default function StudentClassDetailPage() {
                   ))}
                 </div>
               )}
+
+              {classAssignmentsWithStatus.length === 0 && (
+                <p className="text-center py-8 text-muted-foreground">Chưa có bài tập nào trong lớp này.</p>
+              )}
             </motion.div>
           </TabsContent>
 
-          {/* Grades Tab */}
           <TabsContent value="grades" className="mt-6">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="border-0 shadow-md">
                 <CardHeader>
                   <CardTitle className="text-lg">Bảng điểm</CardTitle>
                   <CardDescription>Kết quả các bài tập đã chấm trong lớp này</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {assignments
-                      .filter((a) => a.status === "graded")
-                      .map((assignment) => (
+                  {gradedAssignments.length > 0 ? (
+                    <div className="space-y-4">
+                      {gradedAssignments.map((assignment) => (
                         <div
                           key={assignment.id}
                           className="flex items-center justify-between p-4 rounded-lg bg-muted/50"
@@ -327,9 +347,7 @@ export default function StudentClassDetailPage() {
                             </div>
                             <div>
                               <p className="font-medium">{assignment.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                Nộp ngày: {assignment.dueDate}
-                              </p>
+                              <p className="text-xs text-muted-foreground">Hạn: {assignment.dueDate}</p>
                             </div>
                           </div>
                           <div className="text-right">
@@ -339,58 +357,58 @@ export default function StudentClassDetailPage() {
                           </div>
                         </div>
                       ))}
-                  </div>
+                    </div>
+                  ) : (
+                    <p className="text-center py-8 text-muted-foreground">Chưa có bài tập nào được chấm điểm.</p>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
           </TabsContent>
 
-          {/* Classmates Tab */}
           <TabsContent value="classmates" className="mt-6">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="border-0 shadow-md">
                 <CardHeader>
                   <CardTitle className="text-lg">Thành viên lớp học</CardTitle>
                   <CardDescription>{classData.totalStudents} học viên</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {/* Teacher */}
-                  <div className="mb-6 pb-6 border-b">
-                    <p className="text-sm font-medium text-muted-foreground mb-3">Giảng viên</p>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-12 h-12">
-                        <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-                          {classData.teacher.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-semibold">{classData.teacher}</p>
-                        <p className="text-sm text-muted-foreground">{classData.teacherEmail}</p>
+                  {teacher && (
+                    <div className="mb-6 pb-6 border-b">
+                      <p className="text-sm font-medium text-muted-foreground mb-3">Giảng viên</p>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-12 h-12">
+                          <AvatarFallback className="bg-primary text-primary-foreground text-lg">
+                            {teacher.name.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-semibold">{teacher.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {"email" in teacher ? teacher.email : ""}
+                          </p>
+                        </div>
+                        <Badge className="ml-auto">Giảng viên</Badge>
                       </div>
-                      <Badge className="ml-auto">Giảng viên</Badge>
                     </div>
-                  </div>
-
-                  {/* Students */}
+                  )}
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-3">Học viên</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {classmates.map((student) => (
-                        <div key={student.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                      {members.map((m) => (
+                        <div key={m.id} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                           <Avatar className="w-10 h-10">
                             <AvatarFallback className="bg-primary/10 text-primary">
-                              {student.avatar}
+                              {m.user.name.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="font-medium">{student.name}</span>
+                          <span className="font-medium">{m.user.name}</span>
                         </div>
                       ))}
-                      <div className="flex items-center justify-center p-3 rounded-lg bg-muted/30 text-muted-foreground">
-                        +{classData.totalStudents - classmates.length - 1} học viên khác
-                      </div>
+                      {members.length === 0 && (
+                        <p className="text-muted-foreground col-span-2">Chưa có học viên nào.</p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -398,6 +416,7 @@ export default function StudentClassDetailPage() {
             </motion.div>
           </TabsContent>
         </Tabs>
+        </div>
       </div>
     </AppLayout>
   );

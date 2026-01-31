@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/layout";
 import { Link } from "react-router-dom";
 import { JoinClassModal } from "@/components/modals";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { ClassItem } from "@/api";
 import { useAuth } from "@/context/AuthContext";
@@ -31,11 +31,30 @@ const COLORS = [
 export default function StudentDashboard() {
   const [showJoinClass, setShowJoinClass] = useState(false);
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const { data: classes = [], isLoading, refetch } = useQuery({
+  const { data: classes = [], isLoading: loadingClasses, isError: classesError, refetch } = useQuery({
     queryKey: ["student-classes"],
     queryFn: () => api.get<ClassItem[]>("/classes"),
   });
+
+  const { data: assignmentsWithSub = [], isLoading: loadingAssignments, isError: assignmentsError } = useQuery({
+    queryKey: ["student-assignments"],
+    queryFn: () => api.get<{ assignment: { dueDate?: string }; mySubmission: { grade?: unknown } | null }[]>("/student/assignments"),
+  });
+
+  const isLoading = loadingClasses || loadingAssignments;
+  const hasError = classesError || assignmentsError;
+
+  const submittedCount = assignmentsWithSub.filter((a) => a.mySubmission).length;
+  const dueSoonCount = assignmentsWithSub.filter((a) => {
+    if (!a.assignment.dueDate) return false;
+    const due = new Date(a.assignment.dueDate);
+    const now = new Date();
+    if (due < now) return false;
+    const daysLeft = Math.ceil((due.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+    return daysLeft <= 7 && !a.mySubmission;
+  }).length;
 
   const myClasses = classes.slice(0, 6).map((cls, i) => ({
     id: String(cls.id),
@@ -71,7 +90,21 @@ export default function StudentDashboard() {
           </Button>
         </div>
 
-        {isLoading ? (
+        {hasError ? (
+          <div className="text-center py-12 space-y-2">
+            <p className="text-muted-foreground">Không thể tải dữ liệu. Vui lòng thử lại sau.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ["student-classes"] });
+                queryClient.invalidateQueries({ queryKey: ["student-assignments"] });
+              }}
+            >
+              Thử lại
+            </Button>
+          </div>
+        ) : isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
@@ -111,7 +144,7 @@ export default function StudentDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Đã nộp</p>
-                      <p className="text-3xl font-bold mt-1">–</p>
+                      <p className="text-3xl font-bold mt-1">{submittedCount}</p>
                     </div>
                     <CheckCircle2 className="w-8 h-8 text-success/50" />
                   </div>
@@ -122,7 +155,7 @@ export default function StudentDashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-muted-foreground">Sắp đến hạn</p>
-                      <p className="text-3xl font-bold mt-1">–</p>
+                      <p className="text-3xl font-bold mt-1">{dueSoonCount}</p>
                     </div>
                     <Clock className="w-8 h-8 text-warning/50" />
                   </div>

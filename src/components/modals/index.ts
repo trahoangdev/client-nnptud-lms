@@ -1,5 +1,7 @@
 export { CreateClassModal } from "./CreateClassModal";
+export { EditClassModal } from "./EditClassModal";
 export { CreateAssignmentModal } from "./CreateAssignmentModal";
+export { EditAssignmentModal } from "./EditAssignmentModal";
 export { JoinClassModal } from "./JoinClassModal";
 export { CreateUserModal } from "./CreateUserModal";
 export { UserDetailModal } from "./UserDetailModal";

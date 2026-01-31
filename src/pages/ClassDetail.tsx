@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   BookOpen,
@@ -51,25 +51,62 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { AppLayout } from "@/components/layout";
-import { CreateAssignmentModal, AddMemberModal } from "@/components/modals";
+import { CreateAssignmentModal, EditAssignmentModal, EditClassModal, AddMemberModal } from "@/components/modals";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { exportGradebookToExcel } from "@/lib/exportGradebook";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { ClassDetailItem, AssignmentItem, SubmissionItem } from "@/api";
 import { Loader2 } from "lucide-react";
 
 export default function ClassDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("assignments");
   const [showCreateAssignment, setShowCreateAssignment] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<AssignmentItem | null>(null);
+  const [showEditClass, setShowEditClass] = useState(false);
+  const [showDeleteClassConfirm, setShowDeleteClassConfirm] = useState(false);
+  const [deleteAssignmentId, setDeleteAssignmentId] = useState<string | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [gradeFilter, setGradeFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
+
+  const deleteClassMutation = useMutation({
+    mutationFn: () => api.delete(`/classes/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["teacher-classes"] });
+      toast.success("Đã xóa lớp học");
+      navigate("/classes");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteAssignmentMutation = useMutation({
+    mutationFn: (assignmentId: string) => api.delete(`/assignments/${assignmentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["class-assignments", id] });
+      queryClient.invalidateQueries({ queryKey: ["class", id] });
+      setDeleteAssignmentId(null);
+      toast.success("Đã xóa bài tập");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   const { data: classDetail, isLoading: loadingClass } = useQuery({
     queryKey: ["class", id],
@@ -287,7 +324,60 @@ export default function ClassDetail() {
         className={classData.name}
         onSuccess={() => refetchAssignments()}
       />
-      
+      <EditAssignmentModal
+        open={!!editingAssignment}
+        onOpenChange={(open) => !open && setEditingAssignment(null)}
+        assignment={editingAssignment}
+        className={classData.name}
+        onSuccess={() => {
+          refetchAssignments();
+          setEditingAssignment(null);
+        }}
+      />
+      <EditClassModal
+        open={showEditClass}
+        onOpenChange={setShowEditClass}
+        classItem={classDetail ?? null}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["class", id] })}
+      />
+      <AlertDialog open={showDeleteClassConfirm} onOpenChange={setShowDeleteClassConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa lớp học?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Lớp &quot;{classData?.name}&quot; và toàn bộ bài tập, điểm, thành viên sẽ bị xóa. Không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => id && deleteClassMutation.mutate()}
+            >
+              {deleteClassMutation.isPending ? "Đang xóa..." : "Xóa lớp"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={!!deleteAssignmentId} onOpenChange={(open) => !open && setDeleteAssignmentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa bài tập?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bài tập và tất cả bài nộp liên quan sẽ bị xóa. Không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteAssignmentId && deleteAssignmentMutation.mutate(deleteAssignmentId)}
+            >
+              {deleteAssignmentMutation.isPending ? "Đang xóa..." : "Xóa bài tập"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AddMemberModal
         open={showAddMember}
         onOpenChange={setShowAddMember}
@@ -339,10 +429,32 @@ export default function ClassDetail() {
               </div>
             </div>
             <div className="flex gap-2">
-            <Button variant="outline">
-              <Settings className="w-4 h-4 mr-2" />
-              Cài đặt
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Cài đặt
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowEditClass(true)}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Chỉnh sửa lớp
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("assignments")}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Quản lý bài tập
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setShowDeleteClassConfirm(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Xóa lớp
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={() => setShowCreateAssignment(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Giao bài mới
@@ -396,11 +508,20 @@ export default function ClassDetail() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    setEditingAssignment(
+                                      assignmentsList.find((a) => String(a.id) === assignment.id) ?? null
+                                    )
+                                  }
+                                >
                                   <Pencil className="w-4 h-4 mr-2" />
                                   Chỉnh sửa
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive">
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => setDeleteAssignmentId(assignment.id)}
+                                >
                                   <Trash2 className="w-4 h-4 mr-2" />
                                   Xóa
                                 </DropdownMenuItem>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,7 @@ import {
   Shield,
 } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/api/client";
 
 interface UserData {
   id: string;
@@ -56,13 +57,38 @@ export function UserDetailModal({
   const [editedName, setEditedName] = useState(user?.name || "");
   const [editedEmail, setEditedEmail] = useState(user?.email || "");
 
+  useEffect(() => {
+    if (user) {
+      setEditedName(user.name);
+      setEditedEmail(user.email);
+    }
+  }, [user]);
+
   if (!user) return null;
 
   const handleSave = async () => {
+    if (!editedName.trim() || !editedEmail.trim()) {
+      toast.error("Vui lòng điền đầy đủ thông tin");
+      return;
+    }
+    
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    toast.success("Đã cập nhật thông tin người dùng!");
-    setIsLoading(false);
+    try {
+      await api.patch(`/admin/users/${user.id}`, {
+        name: editedName.trim(),
+        email: editedEmail.trim(),
+      });
+      toast.success("Đã cập nhật thông tin người dùng!");
+      // Update local user object
+      if (onStatusChange) {
+        // Trigger refetch in parent
+        window.location.reload();
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Cập nhật thất bại");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleToggleStatus = async () => {

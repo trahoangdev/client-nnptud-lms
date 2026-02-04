@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Settings,
@@ -49,10 +49,26 @@ import {
 } from "@/components/ui/table";
 import { AppLayout } from "@/components/layout";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/api/client";
+import { Loader2 } from "lucide-react";
 
 export default function AdminSettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Fetch settings from API
+  const { data: settingsData, isLoading: settingsLoading } = useQuery({
+    queryKey: ["admin-settings"],
+    queryFn: () => api.get<{
+      system: any;
+      security: any;
+      email: any;
+      backup: any;
+      notifications: any;
+    }>("/admin/settings"),
+  });
 
   // System settings
   const [systemSettings, setSystemSettings] = useState({
@@ -106,6 +122,64 @@ export default function AdminSettingsPage() {
     weeklyReport: true,
   });
 
+  // Update state when settings are loaded
+  useEffect(() => {
+    if (settingsData) {
+      if (settingsData.system) {
+        setSystemSettings({
+          siteName: settingsData.system.siteName || systemSettings.siteName,
+          siteUrl: settingsData.system.siteUrl || systemSettings.siteUrl,
+          adminEmail: settingsData.system.adminEmail || systemSettings.adminEmail,
+          maxFileSize: String(settingsData.system.maxFileSize || systemSettings.maxFileSize),
+          maxStoragePerClass: String(settingsData.system.maxStoragePerClass || systemSettings.maxStoragePerClass),
+          sessionTimeout: String(settingsData.system.sessionTimeout || systemSettings.sessionTimeout),
+          maintenanceMode: settingsData.system.maintenanceMode ?? systemSettings.maintenanceMode,
+        });
+      }
+      if (settingsData.security) {
+        setSecuritySettings({
+          twoFactorRequired: settingsData.security.twoFactorRequired ?? securitySettings.twoFactorRequired,
+          passwordMinLength: String(settingsData.security.passwordMinLength || securitySettings.passwordMinLength),
+          passwordRequireUppercase: settingsData.security.passwordRequireUppercase ?? securitySettings.passwordRequireUppercase,
+          passwordRequireNumber: settingsData.security.passwordRequireNumber ?? securitySettings.passwordRequireNumber,
+          passwordRequireSpecial: settingsData.security.passwordRequireSpecial ?? securitySettings.passwordRequireSpecial,
+          maxLoginAttempts: String(settingsData.security.maxLoginAttempts || securitySettings.maxLoginAttempts),
+          lockoutDuration: String(settingsData.security.lockoutDuration || securitySettings.lockoutDuration),
+          sessionConcurrent: settingsData.security.sessionConcurrent ?? securitySettings.sessionConcurrent,
+        });
+      }
+      if (settingsData.email) {
+        setEmailSettings({
+          smtpHost: settingsData.email.smtpHost || emailSettings.smtpHost,
+          smtpPort: String(settingsData.email.smtpPort || emailSettings.smtpPort),
+          smtpUser: settingsData.email.smtpUser || emailSettings.smtpUser,
+          smtpPassword: emailSettings.smtpPassword, // Don't load password
+          smtpSecure: settingsData.email.smtpSecure || emailSettings.smtpSecure,
+          fromName: settingsData.email.fromName || emailSettings.fromName,
+          fromEmail: settingsData.email.fromEmail || emailSettings.fromEmail,
+        });
+      }
+      if (settingsData.backup) {
+        setBackupSettings({
+          autoBackup: settingsData.backup.autoBackup ?? backupSettings.autoBackup,
+          backupFrequency: settingsData.backup.backupFrequency || backupSettings.backupFrequency,
+          backupRetention: String(settingsData.backup.backupRetention || backupSettings.backupRetention),
+          backupLocation: settingsData.backup.backupLocation || backupSettings.backupLocation,
+        });
+      }
+      if (settingsData.notifications) {
+        setNotificationSettings({
+          notifyNewUser: settingsData.notifications.notifyNewUser ?? notificationSettings.notifyNewUser,
+          notifyNewClass: settingsData.notifications.notifyNewClass ?? notificationSettings.notifyNewClass,
+          notifyStorageWarning: settingsData.notifications.notifyStorageWarning ?? notificationSettings.notifyStorageWarning,
+          notifySecurityAlert: settingsData.notifications.notifySecurityAlert ?? notificationSettings.notifySecurityAlert,
+          dailyReport: settingsData.notifications.dailyReport ?? notificationSettings.dailyReport,
+          weeklyReport: settingsData.notifications.weeklyReport ?? notificationSettings.weeklyReport,
+        });
+      }
+    }
+  }, [settingsData]);
+
   // Mock backup history
   const backupHistory = [
     { id: "1", date: "2025-01-29 02:00", size: "2.5 GB", status: "success", type: "auto" },
@@ -122,25 +196,67 @@ export default function AdminSettingsPage() {
     { id: "3", user: "tranvanb@email.com", ip: "10.0.0.50", device: "Chrome / Android", lastActivity: "15 phút trước" },
   ];
 
+  const saveSettingsMutation = useMutation({
+    mutationFn: (data: { system?: any; security?: any; email?: any; backup?: any; notifications?: any }) =>
+      api.patch("/admin/settings", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+    },
+  });
+
   const handleSaveSystem = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast.success("Đã lưu cài đặt hệ thống!");
-    setIsLoading(false);
+    try {
+      await saveSettingsMutation.mutateAsync({
+        system: {
+          ...systemSettings,
+          maxFileSize: Number(systemSettings.maxFileSize),
+          maxStoragePerClass: Number(systemSettings.maxStoragePerClass),
+          sessionTimeout: Number(systemSettings.sessionTimeout),
+        },
+      });
+      toast.success("Đã lưu cài đặt hệ thống!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lưu thất bại");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSaveSecurity = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast.success("Đã cập nhật cài đặt bảo mật!");
-    setIsLoading(false);
+    try {
+      await saveSettingsMutation.mutateAsync({
+        security: {
+          ...securitySettings,
+          passwordMinLength: Number(securitySettings.passwordMinLength),
+          maxLoginAttempts: Number(securitySettings.maxLoginAttempts),
+          lockoutDuration: Number(securitySettings.lockoutDuration),
+        },
+      });
+      toast.success("Đã cập nhật cài đặt bảo mật!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lưu thất bại");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSaveEmail = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast.success("Đã lưu cấu hình email!");
-    setIsLoading(false);
+    try {
+      await saveSettingsMutation.mutateAsync({
+        email: {
+          ...emailSettings,
+          smtpPort: Number(emailSettings.smtpPort),
+        },
+      });
+      toast.success("Đã lưu cấu hình email!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lưu thất bại");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleTestEmail = async () => {
@@ -154,9 +270,19 @@ export default function AdminSettingsPage() {
 
   const handleSaveBackup = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    toast.success("Đã cập nhật cài đặt backup!");
-    setIsLoading(false);
+    try {
+      await saveSettingsMutation.mutateAsync({
+        backup: {
+          ...backupSettings,
+          backupRetention: Number(backupSettings.backupRetention),
+        },
+      });
+      toast.success("Đã cập nhật cài đặt backup!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lưu thất bại");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleManualBackup = async () => {
@@ -186,6 +312,16 @@ export default function AdminSettingsPage() {
   const handleTerminateAllSessions = () => {
     toast.success("Đã kết thúc tất cả phiên làm việc khác!");
   };
+
+  if (settingsLoading) {
+    return (
+      <AppLayout userRole="admin">
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout userRole="admin">
@@ -1050,8 +1186,25 @@ export default function AdminSettingsPage() {
                   </div>
                   <Separator />
                   <div className="flex justify-end">
-                    <Button onClick={() => toast.success("Đã lưu cài đặt thông báo!")}>
-                      <Save className="w-4 h-4 mr-2" />
+                    <Button
+                      onClick={async () => {
+                        setIsLoading(true);
+                        try {
+                          await saveSettingsMutation.mutateAsync({ notifications: notificationSettings });
+                          toast.success("Đã lưu cài đặt thông báo!");
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Lưu thất bại");
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
                       Lưu cài đặt
                     </Button>
                   </div>

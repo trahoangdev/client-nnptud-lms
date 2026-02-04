@@ -40,6 +40,9 @@ import {
   CheckCircle,
   Clock,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/api/client";
+import { Loader2 } from "lucide-react";
 
 interface ActivityLog {
   id: string;
@@ -56,145 +59,12 @@ interface ActivityLog {
   status: "success" | "warning" | "error";
 }
 
-const mockActivityLogs: ActivityLog[] = [
-  {
-    id: "1",
-    timestamp: "2024-01-29T16:30:00",
-    userId: "user1",
-    userName: "Nguyễn Văn A",
-    userRole: "admin",
-    action: "Cập nhật cài đặt hệ thống",
-    actionType: "update",
-    resource: "System Settings",
-    details: "Thay đổi giới hạn dung lượng từ 10GB sang 15GB",
-    ipAddress: "192.168.1.100",
-    status: "success",
-  },
-  {
-    id: "2",
-    timestamp: "2024-01-29T16:25:00",
-    userId: "user2",
-    userName: "Trần Thị B",
-    userRole: "teacher",
-    action: "Tạo lớp học mới",
-    actionType: "create",
-    resource: "Class",
-    resourceId: "class-123",
-    details: "Lớp 'Toán 12A1' được tạo thành công",
-    ipAddress: "192.168.1.101",
-    status: "success",
-  },
-  {
-    id: "3",
-    timestamp: "2024-01-29T16:20:00",
-    userId: "user3",
-    userName: "Lê Văn C",
-    userRole: "student",
-    action: "Nộp bài tập",
-    actionType: "create",
-    resource: "Submission",
-    resourceId: "sub-456",
-    details: "Nộp bài 'Bài tập chương 5' cho lớp Toán 12A1",
-    ipAddress: "192.168.1.102",
-    status: "success",
-  },
-  {
-    id: "4",
-    timestamp: "2024-01-29T16:15:00",
-    userId: "user4",
-    userName: "Phạm Thị D",
-    userRole: "teacher",
-    action: "Chấm điểm bài tập",
-    actionType: "update",
-    resource: "Grade",
-    resourceId: "grade-789",
-    details: "Chấm điểm 9.5 cho bài nộp của học sinh Lê Văn C",
-    ipAddress: "192.168.1.103",
-    status: "success",
-  },
-  {
-    id: "5",
-    timestamp: "2024-01-29T16:10:00",
-    userId: "user5",
-    userName: "Hoàng Văn E",
-    userRole: "admin",
-    action: "Khóa tài khoản",
-    actionType: "update",
-    resource: "User",
-    resourceId: "user-blocked",
-    details: "Khóa tài khoản do vi phạm quy định",
-    ipAddress: "192.168.1.104",
-    status: "warning",
-  },
-  {
-    id: "6",
-    timestamp: "2024-01-29T16:05:00",
-    userId: "user6",
-    userName: "Vũ Thị F",
-    userRole: "student",
-    action: "Đăng nhập thất bại",
-    actionType: "login",
-    resource: "Auth",
-    details: "Sai mật khẩu 3 lần liên tiếp",
-    ipAddress: "192.168.1.105",
-    status: "error",
-  },
-  {
-    id: "7",
-    timestamp: "2024-01-29T16:00:00",
-    userId: "user7",
-    userName: "Ngô Văn G",
-    userRole: "teacher",
-    action: "Xóa bài tập",
-    actionType: "delete",
-    resource: "Assignment",
-    resourceId: "assign-del",
-    details: "Xóa bài tập 'Kiểm tra giữa kỳ'",
-    ipAddress: "192.168.1.106",
-    status: "success",
-  },
-  {
-    id: "8",
-    timestamp: "2024-01-29T15:55:00",
-    userId: "user1",
-    userName: "Nguyễn Văn A",
-    userRole: "admin",
-    action: "Tạo backup hệ thống",
-    actionType: "system",
-    resource: "Backup",
-    details: "Tạo backup thủ công thành công",
-    ipAddress: "192.168.1.100",
-    status: "success",
-  },
-  {
-    id: "9",
-    timestamp: "2024-01-29T15:50:00",
-    userId: "user8",
-    userName: "Đỗ Thị H",
-    userRole: "student",
-    action: "Tham gia lớp học",
-    actionType: "create",
-    resource: "ClassMember",
-    resourceId: "member-new",
-    details: "Tham gia lớp 'Văn học 11B2' bằng mã mời",
-    ipAddress: "192.168.1.107",
-    status: "success",
-  },
-  {
-    id: "10",
-    timestamp: "2024-01-29T15:45:00",
-    userId: "user2",
-    userName: "Trần Thị B",
-    userRole: "teacher",
-    action: "Giao bài tập mới",
-    actionType: "create",
-    resource: "Assignment",
-    resourceId: "assign-new",
-    details: "Giao bài 'Đọc hiểu văn bản' cho lớp Văn học 11B2",
-    ipAddress: "192.168.1.101",
-    status: "success",
-  },
-];
+interface ActivityLogsResponse {
+  logs: ActivityLog[];
+  total: number;
+  limit: number;
+  offset: number;
+}
 
 const getActionIcon = (actionType: ActivityLog["actionType"]) => {
   switch (actionType) {
@@ -274,23 +144,31 @@ export default function AdminActivityLogPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const filteredLogs = mockActivityLogs.filter((log) => {
+  const { data, isLoading, refetch } = useQuery<ActivityLogsResponse>({
+    queryKey: ["admin-activity-logs", filterRole, filterAction, filterStatus, currentPage],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (filterRole !== "all") params.set("role", filterRole);
+      if (filterAction !== "all") params.set("actionType", filterAction);
+      if (filterStatus !== "all") params.set("status", filterStatus);
+      params.set("limit", String(itemsPerPage));
+      params.set("offset", String((currentPage - 1) * itemsPerPage));
+      return api.get(`/admin/activity-logs?${params.toString()}`);
+    },
+  });
+
+  const allLogs = data?.logs || [];
+  const filteredLogs = allLogs.filter((log) => {
     const matchesSearch =
       log.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.details?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.resource.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = filterRole === "all" || log.userRole === filterRole;
-    const matchesAction = filterAction === "all" || log.actionType === filterAction;
-    const matchesStatus = filterStatus === "all" || log.status === filterStatus;
-    return matchesSearch && matchesRole && matchesAction && matchesStatus;
+    return matchesSearch;
   });
 
-  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
-  const paginatedLogs = filteredLogs.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = Math.ceil((data?.total || 0) / itemsPerPage);
+  const paginatedLogs = filteredLogs;
 
   const handleExport = () => {
     const headers = ["Thời gian", "Người dùng", "Vai trò", "Hành động", "Tài nguyên", "Chi tiết", "IP", "Trạng thái"];
@@ -318,12 +196,12 @@ export default function AdminActivityLogPage() {
   };
 
   const stats = {
-    total: mockActivityLogs.length,
-    today: mockActivityLogs.filter(
+    total: data?.total || 0,
+    today: allLogs.filter(
       (log) => new Date(log.timestamp).toDateString() === new Date().toDateString()
     ).length,
-    errors: mockActivityLogs.filter((log) => log.status === "error").length,
-    warnings: mockActivityLogs.filter((log) => log.status === "warning").length,
+    errors: allLogs.filter((log) => log.status === "error").length,
+    warnings: allLogs.filter((log) => log.status === "warning").length,
   };
 
   return (
@@ -338,7 +216,7 @@ export default function AdminActivityLogPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Làm mới
             </Button>
@@ -470,10 +348,15 @@ export default function AdminActivityLogPage() {
           <CardHeader>
             <CardTitle>Danh sách hoạt động</CardTitle>
             <CardDescription>
-              Hiển thị {paginatedLogs.length} trong tổng số {filteredLogs.length} hoạt động
+              Hiển thị {paginatedLogs.length} trong tổng số {data?.total || 0} hoạt động
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -521,9 +404,10 @@ export default function AdminActivityLogPage() {
                 ))}
               </TableBody>
             </Table>
+            )}
 
             {/* Pagination */}
-            {totalPages > 1 && (
+            {!isLoading && totalPages > 1 && (
               <div className="mt-4">
                 <Pagination>
                   <PaginationContent>
@@ -533,7 +417,7 @@ export default function AdminActivityLogPage() {
                         className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                       />
                     </PaginationItem>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map((page) => (
                       <PaginationItem key={page}>
                         <PaginationLink
                           onClick={() => setCurrentPage(page)}

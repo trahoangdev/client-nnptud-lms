@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, File, X, CheckCircle2, AlertCircle, Loader2, AlertTriangle } from "lucide-react";
+import { Upload, File, X, CheckCircle2, AlertCircle, Loader2, AlertTriangle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -43,10 +43,13 @@ export function FileUpload({
 }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadSpeed, setUploadSpeed] = useState<string>("");
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
   const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("");
   const [showCancelWarning, setShowCancelWarning] = useState(false);
   const [showRemoveWarning, setShowRemoveWarning] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const validateFile = (file: File): boolean => {
     // Check file size
@@ -73,23 +76,48 @@ export function FileUpload({
   const simulateUpload = async (file: File) => {
     setUploadStatus("uploading");
     setUploadProgress(0);
+    setUploadSpeed("");
+    setErrorMessage("");
+    abortRef.current = new AbortController();
 
-    // Simulate upload progress
-    for (let i = 0; i <= 100; i += 10) {
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      setUploadProgress(i);
+    const startTime = Date.now();
+    // Simulate upload progress with realistic speed calculation
+    const steps = 20;
+    const stepDelay = Math.max(50, Math.min(200, file.size / 50000));
+    for (let i = 1; i <= steps; i++) {
+      if (abortRef.current?.signal.aborted) {
+        setUploadStatus("idle");
+        setUploadProgress(0);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, stepDelay));
+      const progress = Math.round((i / steps) * 95);
+      setUploadProgress(progress);
+      const elapsed = (Date.now() - startTime) / 1000;
+      const bytesUploaded = (file.size * progress) / 100;
+      const speed = bytesUploaded / elapsed;
+      setUploadSpeed(formatFileSize(speed) + "/s");
     }
 
     try {
       await onUpload?.(file);
+      setUploadProgress(100);
       setUploadStatus("success");
+      setUploadSpeed("");
       toast.success("Tải lên thành công!");
     } catch (error) {
       setUploadStatus("error");
+      setUploadSpeed("");
+      setErrorMessage(error instanceof Error ? error.message : "Vui lòng thử lại sau");
       toast.error("Tải lên thất bại", {
-        description: "Vui lòng thử lại sau",
+        description: error instanceof Error ? error.message : "Vui lòng thử lại sau",
       });
     }
+  };
+
+  const handleRetry = async () => {
+    if (!currentFile) return;
+    await simulateUpload(currentFile);
   };
 
   const handleFile = (file: File) => {
@@ -305,9 +333,26 @@ export function FileUpload({
               <div className="flex-1">
                 <p className="font-medium mb-2">{currentFile?.name}</p>
                 <Progress value={uploadProgress} className="h-2" />
-                <p className="text-sm text-muted-foreground mt-1">
-                  Đang tải lên... {uploadProgress}%
-                </p>
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-sm text-muted-foreground">
+                    Đang tải lên... {uploadProgress}%
+                    {uploadSpeed && <span className="ml-2 text-xs">({uploadSpeed})</span>}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      abortRef.current?.abort();
+                      setUploadStatus("idle");
+                      setUploadProgress(0);
+                      setUploadSpeed("");
+                    }}
+                    className="h-7 text-xs hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Hủy
+                  </Button>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -320,20 +365,35 @@ export function FileUpload({
             className="p-6 border-2 border-destructive/30 bg-destructive/5 rounded-xl"
           >
             <div className="flex items-center gap-4">
-              <AlertCircle className="w-8 h-8 text-destructive" />
-              <div className="flex-1">
+              <AlertCircle className="w-8 h-8 text-destructive shrink-0" />
+              <div className="flex-1 min-w-0">
                 <p className="font-medium text-destructive">Tải lên thất bại</p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground truncate">
                   {currentFile?.name}
                 </p>
+                {errorMessage && (
+                  <p className="text-xs text-destructive/70 mt-1">{errorMessage}</p>
+                )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => currentFile && handleFile(currentFile)}
-              >
-                Thử lại
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setCurrentFile(null); setUploadStatus("idle"); }}
+                  className="hover:bg-muted"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Hủy
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetry}
+                >
+                  <RotateCcw className="w-4 h-4 mr-1" />
+                  Thử lại
+                </Button>
+              </div>
             </div>
           </motion.div>
         ) : (

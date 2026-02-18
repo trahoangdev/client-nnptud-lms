@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -12,6 +12,7 @@ import {
   Filter,
   Search,
   BarChart3,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { AppLayout } from "@/components/layout";
 import { GradeSubmissionModal } from "@/components/modals";
+import { EditAssignmentModal } from "@/components/modals";
 import { CommentsSection } from "@/components/CommentsSection";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { useQuery } from "@tanstack/react-query";
@@ -36,6 +38,9 @@ import { api } from "@/api/client";
 import type { AssignmentItem, SubmissionItem } from "@/api";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { useSocket } from "@/context/SocketContext";
+import { useSocketEvent } from "@/hooks/useSocketEvent";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { parseISO } from "date-fns";
@@ -86,12 +91,22 @@ function mapSubmission(s: SubmissionItem): SubmissionDisplay {
 
 export default function AssignmentDetail() {
   const { id } = useParams();
+  const { joinAssignmentRoom, leaveAssignmentRoom } = useSocket();
   const [selectedSubmission, setSelectedSubmission] = useState<string | null>(null);
   const [showGradeModal, setShowGradeModal] = useState(false);
   const [submissionFilter, setSubmissionFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showEditModal, setShowEditModal] = useState(false);
 
-  const { data: assignment, isLoading: loadingAssignment, isError: assignmentError, error: assignmentErrorDetail } = useQuery({
+  // Join assignment room for realtime events
+  useEffect(() => {
+    if (id) {
+      joinAssignmentRoom(Number(id));
+      return () => leaveAssignmentRoom(Number(id));
+    }
+  }, [id, joinAssignmentRoom, leaveAssignmentRoom]);
+
+  const { data: assignment, isLoading: loadingAssignment, isError: assignmentError, error: assignmentErrorDetail, refetch: refetchAssignment } = useQuery({
     queryKey: ["assignment", id],
     queryFn: () =>
       api.get<AssignmentItem & { class?: { id: number; name: string } }>(`/assignments/${id}`),
@@ -103,6 +118,18 @@ export default function AssignmentDetail() {
     queryFn: () => api.get<SubmissionItem[]>(`/assignments/${id}/submissions`),
     enabled: !!id,
   });
+
+  // Realtime: auto-refetch submissions list
+  const handleSubmissionEvent = useCallback(() => {
+    refetchSubmissions();
+    toast.info("Có bài nộp mới!");
+  }, [refetchSubmissions]);
+  const handleGradeEvent = useCallback(() => {
+    refetchSubmissions();
+  }, [refetchSubmissions]);
+  useSocketEvent("submission:new", handleSubmissionEvent);
+  useSocketEvent("submission:updated", handleSubmissionEvent);
+  useSocketEvent("grade:updated", handleGradeEvent);
 
   const submissionsList = useMemo(() => submissionsRaw.map(mapSubmission), [submissionsRaw]);
 
@@ -223,6 +250,16 @@ export default function AssignmentDetail() {
         }}
       />
 
+      <EditAssignmentModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        assignment={assignment}
+        onSuccess={() => {
+          refetchAssignment();
+          setShowEditModal(false);
+        }}
+      />
+
       <div className="space-y-6">
         <div className="flex flex-col gap-4">
           <Link
@@ -258,7 +295,18 @@ export default function AssignmentDetail() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowEditModal(true)}
+                className="gap-2"
+              >
+                <Pencil className="w-4 h-4" />
+                Chỉnh sửa
+              </Button>
+
+              <div className="flex items-center gap-4">
               <div className="text-center px-4 py-2 bg-muted rounded-lg">
                 <p className="text-2xl font-bold">{submittedCount}/{submissionsList.length || 1}</p>
                 <p className="text-xs text-muted-foreground">Đã nộp</p>
@@ -270,6 +318,7 @@ export default function AssignmentDetail() {
               <div className="text-center px-4 py-2 bg-muted rounded-lg">
                 <p className="text-2xl font-bold text-primary">{stats.avgScore.toFixed(1)}</p>
                 <p className="text-xs text-muted-foreground">Điểm TB</p>
+              </div>
               </div>
             </div>
           </div>

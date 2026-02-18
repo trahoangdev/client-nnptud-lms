@@ -185,3 +185,126 @@ export function exportGradebookToExcel(options: ExportOptions) {
 
   return filename;
 }
+
+/**
+ * Export gradebook as CSV
+ */
+export function exportGradebookToCSV(options: ExportOptions): string {
+  const { className, classCode, teacherName, assignments, gradebook } = options;
+  const exportDate = options.exportDate || new Date();
+
+  const getClassification = (avg: number): string => {
+    if (avg >= 9) return 'Xuất sắc';
+    if (avg >= 8) return 'Giỏi';
+    if (avg >= 7) return 'Khá';
+    if (avg >= 5) return 'Trung bình';
+    return 'Yếu';
+  };
+
+  const headers = [
+    'STT',
+    'Họ và tên',
+    ...assignments.map(a => a.title),
+    'Điểm TB',
+    'Xếp loại',
+  ];
+
+  const rows = gradebook.map((student, i) => [
+    String(i + 1),
+    student.name,
+    ...assignments.map(a => student.scores[a.id] !== null ? String(student.scores[a.id]) : ''),
+    student.average.toFixed(2),
+    getClassification(student.average),
+  ]);
+
+  // Add BOM for UTF-8 encoding
+  const csvContent = '\uFEFF' + [
+    `Bảng điểm - ${className} (${classCode})`,
+    `Giảng viên: ${teacherName || 'N/A'}`,
+    `Ngày xuất: ${exportDate.toLocaleDateString('vi-VN')}`,
+    '',
+    headers.join(','),
+    ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const dateStr = exportDate.toISOString().split('T')[0];
+  const filename = `BangDiem_${classCode}_${dateStr}.csv`;
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+
+  return filename;
+}
+
+/**
+ * Export gradebook as PDF using jspdf + jspdf-autotable
+ */
+export async function exportGradebookToPDF(options: ExportOptions): Promise<string> {
+  const { className, classCode, teacherName, assignments, gradebook } = options;
+  const exportDate = options.exportDate || new Date();
+
+  const { default: jsPDF } = await import('jspdf');
+  await import('jspdf-autotable');
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  const getClassification = (avg: number): string => {
+    if (avg >= 9) return 'Xuat sac';
+    if (avg >= 8) return 'Gioi';
+    if (avg >= 7) return 'Kha';
+    if (avg >= 5) return 'Trung binh';
+    return 'Yeu';
+  };
+
+  // Title
+  doc.setFontSize(16);
+  doc.text('BANG DIEM LOP HOC', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+
+  // Class info
+  doc.setFontSize(10);
+  doc.text(`Lop: ${className}`, 14, 25);
+  doc.text(`Ma lop: ${classCode}`, 14, 30);
+  doc.text(`Giang vien: ${teacherName || 'N/A'}`, 14, 35);
+  doc.text(`Ngay xuat: ${exportDate.toLocaleDateString('vi-VN')}`, 14, 40);
+
+  // Table
+  const headers = ['STT', 'Ho va ten', ...assignments.map(a => a.title), 'Diem TB', 'Xep loai'];
+  const body = gradebook.map((student, i) => [
+    String(i + 1),
+    student.name,
+    ...assignments.map(a => student.scores[a.id] !== null ? String(student.scores[a.id]) : '-'),
+    student.average.toFixed(2),
+    getClassification(student.average),
+  ]);
+
+  // Summary row
+  const avgScores = assignments.map(a => {
+    const scores = gradebook.map(s => s.scores[a.id]).filter(s => s !== null) as number[];
+    return scores.length > 0 ? (scores.reduce((sum, s) => sum + s, 0) / scores.length).toFixed(2) : '-';
+  });
+  const classAverage = gradebook.length > 0
+    ? (gradebook.reduce((sum, s) => sum + s.average, 0) / gradebook.length).toFixed(2)
+    : '-';
+  body.push(['', 'DIEM TRUNG BINH LOP', ...avgScores, classAverage, '']);
+
+  (doc as unknown as { autoTable: (options: unknown) => void }).autoTable({
+    startY: 45,
+    head: [headers],
+    body: body,
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 8 },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
+    margin: { left: 14, right: 14 },
+  });
+
+  const dateStr = exportDate.toISOString().split('T')[0];
+  const filename = `BangDiem_${classCode}_${dateStr}.pdf`;
+  doc.save(filename);
+
+  return filename;
+}

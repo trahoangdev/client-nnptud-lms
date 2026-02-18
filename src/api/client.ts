@@ -34,7 +34,7 @@ export function clearStoredUser() {
   localStorage.removeItem("user");
 }
 
-type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 async function request<T>(
   path: string,
@@ -78,7 +78,6 @@ export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
   post: <T>(path: string, body: unknown) => request<T>(path, { method: "POST", body }),
   patch: <T>(path: string, body: unknown) => request<T>(path, { method: "PATCH", body }),
-  put: <T>(path: string, body: unknown) => request<T>(path, { method: "PUT", body }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 

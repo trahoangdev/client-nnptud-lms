@@ -1,7 +1,7 @@
 export interface ConversationMember {
   id: string;
   name: string;
-  role: "teacher" | "student";
+  role: "teacher" | "student" | "admin";
   avatar: string;
 }
 
@@ -15,8 +15,8 @@ export interface LastMessage {
 export interface Conversation {
   id: string;
   name: string;
-  type: "group" | "class";
-  classId: string;
+  type: "group" | "class" | "direct";
+  classId: string | null;
   className: string;
   members: ConversationMember[];
   lastMessage: LastMessage;
@@ -27,10 +27,11 @@ export interface Message {
   id: string;
   senderId: string;
   senderName: string;
-  senderRole: "teacher" | "student";
+  senderRole: "teacher" | "student" | "admin";
   content: string;
   time: string;
   date: string;
   isOwn: boolean;
   status: "read" | "delivered" | "sent";
+  conversationId?: string;
 }

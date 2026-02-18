@@ -89,7 +89,7 @@ export default function LandingPage() {
                 </Link>
               </Button>
               <Button size="lg" variant="outline" className="text-base" asChild>
-                <Link to="/login">Tạo tài khoản (liên hệ Admin)</Link>
+                <Link to="/login">Tạo tài khoản</Link>
               </Button>
             </div>
           </motion.div>

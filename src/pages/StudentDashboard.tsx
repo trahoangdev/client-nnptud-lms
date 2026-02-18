@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   BookOpen,
@@ -8,17 +8,22 @@ import {
   Calendar,
   ArrowRight,
   UserPlus,
+  TrendingUp,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { AppLayout } from "@/components/layout";
 import { Link } from "react-router-dom";
 import { JoinClassModal } from "@/components/modals";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { ClassItem } from "@/api";
+import type { StudentDashboardStats } from "@/api/types";
 import { useAuth } from "@/context/AuthContext";
+import { useSocketEvent } from "@/hooks/useSocketEvent";
+import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 const COLORS = [
@@ -38,9 +43,44 @@ export default function StudentDashboard() {
     queryFn: () => api.get<ClassItem[]>("/classes"),
   });
 
-  const { data: assignmentsWithSub = [], isLoading: loadingAssignments, isError: assignmentsError } = useQuery({
+  const { data: assignmentsWithSub = [], isLoading: loadingAssignments, isError: assignmentsError, refetch: refetchAssignments } = useQuery({
     queryKey: ["student-assignments"],
     queryFn: () => api.get<{ assignment: { dueDate?: string }; mySubmission: { grade?: unknown } | null }[]>("/student/assignments"),
+  });
+
+  // Realtime: auto-refetch when grade is updated
+  const handleGradeUpdated = useCallback(
+    (data: { assignment_title?: string; score?: number }) => {
+      refetchAssignments();
+      toast.success("Đã có điểm mới!", {
+        description: data.assignment_title
+          ? `${data.assignment_title}: ${data.score} điểm`
+          : undefined,
+      });
+    },
+    [refetchAssignments]
+  );
+  useSocketEvent("grade:updated", handleGradeUpdated);
+
+  // Realtime: auto-refetch when teacher creates a new assignment
+  const handleAssignmentNew = useCallback(
+    (data: { title?: string; className?: string }) => {
+      refetchAssignments();
+      queryClient.invalidateQueries({ queryKey: ["student-dashboard-stats"] });
+      toast.info("Bài tập mới!", {
+        description: data.title
+          ? `${data.title} — ${data.className || ""}`
+          : "Giảng viên vừa giao bài tập mới",
+      });
+    },
+    [refetchAssignments, queryClient]
+  );
+  useSocketEvent("assignment:new", handleAssignmentNew);
+
+  // Enhanced stats from dashboard API
+  const { data: dashStats } = useQuery({
+    queryKey: ["student-dashboard-stats"],
+    queryFn: () => api.get<StudentDashboardStats>("/student/dashboard-stats"),
   });
 
   const isLoading = loadingClasses || loadingAssignments;
@@ -202,6 +242,45 @@ export default function StudentDashboard() {
                 </CardContent>
               </Card>
             </motion.div>
+
+            {/* Progress overview from dashboard stats */}
+            {dashStats && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                <Card className="border-0 shadow-md">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-success" />
+                      Tiến độ học tập
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Tỉ lệ nộp bài</span>
+                          <span className="font-medium">{dashStats.submissionRate}%</span>
+                        </div>
+                        <Progress value={dashStats.submissionRate} className="h-2" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Đã chấm điểm</span>
+                          <span className="font-medium">{dashStats.gradedCount}/{dashStats.submittedCount}</span>
+                        </div>
+                        <Progress value={dashStats.submittedCount > 0 ? (dashStats.gradedCount / dashStats.submittedCount) * 100 : 0} className="h-2" />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Điểm trung bình</span>
+                          <span className="font-medium">{dashStats.avgScore != null ? `${dashStats.avgScore}%` : "–"}</span>
+                        </div>
+                        <Progress value={dashStats.avgScore ?? 0} className="h-2" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </>
         )}
       </div>

@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 
 interface SidebarProps {
   userRole: "teacher" | "student" | "admin";
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 interface NavItem {
@@ -34,16 +36,15 @@ const navItems: NavItem[] = [
   // Teacher
   { icon: LayoutDashboard, label: "Dashboard", href: "/", roles: ["teacher"] },
   { icon: BookOpen, label: "Lớp học", href: "/classes", roles: ["teacher"] },
-  // Tạm ẩn hội thoại - chưa dùng tới
-  // { icon: MessageSquare, label: "Hội thoại", href: "/conversations", roles: ["teacher"] },
+  { icon: Calendar, label: "Lịch deadline", href: "/calendar", roles: ["teacher"] },
+  { icon: MessageSquare, label: "Hội thoại", href: "/conversations", roles: ["teacher"] },
   { icon: Settings, label: "Cài đặt", href: "/settings", roles: ["teacher"] },
   // Student  
   { icon: LayoutDashboard, label: "Dashboard", href: "/student", roles: ["student"] },
   { icon: BookOpen, label: "Lớp học", href: "/student/classes", roles: ["student"] },
   { icon: FileText, label: "Bài tập", href: "/student/assignments", roles: ["student"] },
   { icon: Calendar, label: "Lịch deadline", href: "/student/calendar", roles: ["student"] },
-  // Tạm ẩn hội thoại - chưa dùng tới
-  // { icon: MessageSquare, label: "Hội thoại", href: "/student/conversations", roles: ["student"] },
+  { icon: MessageSquare, label: "Hội thoại", href: "/student/conversations", roles: ["student"] },
   { icon: GraduationCap, label: "Điểm số", href: "/student/grades", roles: ["student"] },
   { icon: Settings, label: "Cài đặt", href: "/student/settings", roles: ["student"] },
   // Admin
@@ -55,8 +56,10 @@ const navItems: NavItem[] = [
   { icon: Settings, label: "Cài đặt hệ thống", href: "/admin/settings", roles: ["admin"] },
 ];
 
-export function Sidebar({ userRole }: SidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+export function Sidebar({ userRole, isCollapsed: controlledCollapsed, onToggleCollapse }: SidebarProps) {
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const isCollapsed = controlledCollapsed ?? internalCollapsed;
+  const setIsCollapsed = onToggleCollapse ?? (() => setInternalCollapsed(prev => !prev));
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
 
@@ -89,6 +92,7 @@ export function Sidebar({ userRole }: SidebarProps) {
             <Link
               key={item.href}
               to={item.href}
+              onClick={() => setIsMobileOpen(false)}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
                 "hover:bg-sidebar-accent group",
@@ -116,7 +120,7 @@ export function Sidebar({ userRole }: SidebarProps) {
       {/* User & Collapse button */}
       <div className="p-4 border-t border-sidebar-border space-y-3">
         <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={() => { if (onToggleCollapse) onToggleCollapse(); else setInternalCollapsed(prev => !prev); }}
           className="hidden md:flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
         >
           <ChevronLeft

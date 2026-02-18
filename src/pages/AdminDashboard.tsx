@@ -429,6 +429,7 @@ export default function AdminDashboard() {
               <TabsContent value="users">
                 <Card className="border-0 shadow-md">
                   <CardContent className="p-0">
+                    <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -527,6 +528,7 @@ export default function AdminDashboard() {
                         )}
                       </TableBody>
                     </Table>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -534,6 +536,7 @@ export default function AdminDashboard() {
               <TabsContent value="classes">
                 <Card className="border-0 shadow-md">
                   <CardContent className="p-0">
+                    <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -636,6 +639,7 @@ export default function AdminDashboard() {
                         )}
                       </TableBody>
                     </Table>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>

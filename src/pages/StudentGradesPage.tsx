@@ -270,6 +270,7 @@ export default function StudentGradesPage() {
                         </div>
                       </CardHeader>
                       <CardContent className="p-0">
+                        <div className="overflow-x-auto">
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -296,6 +297,7 @@ export default function StudentGradesPage() {
                             ))}
                           </TableBody>
                         </Table>
+                        </div>
                       </CardContent>
                     </Card>
                   </motion.div>

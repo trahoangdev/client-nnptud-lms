@@ -37,33 +37,15 @@ import { api } from "@/api/client";
 import { Loader2 } from "lucide-react";
 
 // Helper to generate user growth data from stats (simplified - would need historical data in real app)
-const getUserGrowthData = (stats: AdminStats | undefined) => {
-  if (!stats) return [];
-  // Simplified: show current stats as last month
-  const currentMonth = new Date().getMonth() + 1;
-  return Array.from({ length: 12 }, (_, i) => {
-    const month = i + 1;
-    const progress = month / 12;
-    return {
-      month: `T${month}`,
-      teachers: Math.round((stats.totalTeachers || 0) * progress),
-      students: Math.round((stats.totalStudents || 0) * progress),
-    };
-  });
+const getUserGrowthData = (_stats: AdminStats | undefined, realData?: { month: string; teachers: number; students: number }[]) => {
+  if (realData && realData.length > 0) return realData;
+  return [];
 };
 
 // Helper to generate submission data from API stats
-const getSubmissionData = (stats: { total: number; onTime: number; late: number; missing: number } | undefined) => {
-  if (!stats) return [];
-  // Simplified: distribute stats across 6 weeks
-  return [
-    { week: "Tuần 1", onTime: Math.round(stats.onTime * 0.15), late: Math.round(stats.late * 0.15), missing: Math.round(stats.missing * 0.15) },
-    { week: "Tuần 2", onTime: Math.round(stats.onTime * 0.18), late: Math.round(stats.late * 0.18), missing: Math.round(stats.missing * 0.18) },
-    { week: "Tuần 3", onTime: Math.round(stats.onTime * 0.20), late: Math.round(stats.late * 0.20), missing: Math.round(stats.missing * 0.20) },
-    { week: "Tuần 4", onTime: Math.round(stats.onTime * 0.17), late: Math.round(stats.late * 0.17), missing: Math.round(stats.missing * 0.17) },
-    { week: "Tuần 5", onTime: Math.round(stats.onTime * 0.15), late: Math.round(stats.late * 0.15), missing: Math.round(stats.missing * 0.15) },
-    { week: "Tuần 6", onTime: Math.round(stats.onTime * 0.15), late: Math.round(stats.late * 0.15), missing: Math.round(stats.missing * 0.15) },
-  ];
+const getSubmissionData = (_stats: { total: number; onTime: number; late: number; missing: number } | undefined, realTimeline?: { week: string; onTime: number; late: number }[]) => {
+  if (realTimeline && realTimeline.length > 0) return realTimeline;
+  return [];
 };
 
 // Helper to generate grade distribution from API stats
@@ -80,39 +62,12 @@ const getGradeDistribution = (stats: {
   ];
 };
 
-const classActivityData = [
-  { name: "Toán 12A1", assignments: 24, submissions: 456, avgGrade: 8.2 },
-  { name: "Văn 11B2", assignments: 18, submissions: 342, avgGrade: 7.8 },
-  { name: "Anh 10C1", assignments: 22, submissions: 418, avgGrade: 8.5 },
-  { name: "Lý 12A2", assignments: 20, submissions: 380, avgGrade: 7.5 },
-  { name: "Hóa 11B1", assignments: 16, submissions: 304, avgGrade: 8.0 },
-];
-
-const storageData = [
-  { month: "T7", used: 12.5 },
-  { month: "T8", used: 15.2 },
-  { month: "T9", used: 18.8 },
-  { month: "T10", used: 22.4 },
-  { month: "T11", used: 26.1 },
-  { month: "T12", used: 28.7 },
-];
-
-const dailyActiveUsers = [
-  { date: "01/12", users: 145 },
-  { date: "02/12", users: 132 },
-  { date: "03/12", users: 158 },
-  { date: "04/12", users: 142 },
-  { date: "05/12", users: 89 },
-  { date: "06/12", users: 76 },
-  { date: "07/12", users: 168 },
-  { date: "08/12", users: 175 },
-  { date: "09/12", users: 162 },
-  { date: "10/12", users: 148 },
-  { date: "11/12", users: 155 },
-  { date: "12/12", users: 178 },
-  { date: "13/12", users: 185 },
-  { date: "14/12", users: 172 },
-];
+interface ClassActivityItem {
+  name: string;
+  assignments: number;
+  submissions: number;
+  avgGrade: number;
+}
 
 interface AdminStats {
   totalUsers: number;
@@ -147,44 +102,112 @@ export default function AdminReportsPage() {
     }>("/admin/reports/grades"),
   });
 
+  const { data: userGrowthData } = useQuery({
+    queryKey: ["admin-reports-user-growth"],
+    queryFn: () => api.get<{ month: string; teachers: number; students: number }[]>("/admin/reports/user-growth"),
+  });
+
+  const { data: classActivityData } = useQuery({
+    queryKey: ["admin-reports-class-activity"],
+    queryFn: () => api.get<ClassActivityItem[]>("/admin/reports/class-activity"),
+  });
+
+  const { data: submissionsTimeline } = useQuery({
+    queryKey: ["admin-reports-submissions-timeline", timeRange],
+    queryFn: () => api.get<{ week: string; onTime: number; late: number }[]>(`/admin/reports/submissions-timeline?timeRange=${timeRange}`),
+  });
+
+  const { data: dailyActiveData } = useQuery({
+    queryKey: ["admin-reports-daily-active"],
+    queryFn: () => api.get<{ date: string; users: number }[]>("/admin/reports/daily-active"),
+  });
+
   const handleExportPDF = async () => {
     setIsExporting(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const reportContent = `
-NNPTUD LMS - BÁO CÁO THỐNG KÊ HỆ THỐNG
-=====================================
-Ngày xuất: ${new Date().toLocaleDateString("vi-VN")}
-Khoảng thời gian: ${timeRange === "week" ? "7 ngày qua" : timeRange === "month" ? "30 ngày qua" : timeRange === "quarter" ? "3 tháng qua" : "12 tháng qua"}
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+      const doc = new jsPDF();
+      const timeLabel = timeRange === "week" ? "7 ngay qua" : timeRange === "month" ? "30 ngay qua" : timeRange === "quarter" ? "3 thang qua" : "12 thang qua";
 
-1. TỔNG QUAN NGƯỜI DÙNG
------------------------
-- Tổng số người dùng: ${stats?.totalUsers ?? "–"}
-- Tổng số giáo viên: ${stats?.totalTeachers ?? "–"}
-- Tổng số sinh viên: ${stats?.totalStudents ?? "–"}
-- Tài khoản hoạt động: ${stats?.activeUsers ?? "–"}
+      // Title
+      doc.setFontSize(18);
+      doc.setTextColor(41, 98, 255);
+      doc.text("NNPTUD LMS - BAO CAO THONG KE HE THONG", 14, 20);
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Ngay xuat: ${new Date().toLocaleDateString("vi-VN")} | Thoi gian: ${timeLabel}`, 14, 28);
 
-2. THỐNG KÊ LỚP HỌC
--------------------
-- Tổng số lớp học: ${stats?.totalClasses ?? "–"}
-- Bài tập đã tạo: ${stats?.totalAssignments ?? "–"}
+      // Section 1: Users overview
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text("1. Tong quan nguoi dung", 14, 40);
+      autoTable(doc, {
+        startY: 44,
+        head: [["Chi tieu", "Gia tri"]],
+        body: [
+          ["Tong so nguoi dung", String(stats?.totalUsers ?? 0)],
+          ["Giao vien", String(stats?.totalTeachers ?? 0)],
+          ["Sinh vien", String(stats?.totalStudents ?? 0)],
+          ["Tai khoan hoat dong", String(stats?.activeUsers ?? 0)],
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [41, 98, 255] },
+      });
 
-3. THỐNG KÊ BÀI NỘP / PHÂN BỐ ĐIỂM
-----------------------------------
-(Dữ liệu chi tiết cần API bổ sung)
+      // Section 2: Class & assignments
+      const y2 = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable?.finalY ?? 80;
+      doc.setFontSize(14);
+      doc.text("2. Thong ke lop hoc", 14, y2 + 10);
+      autoTable(doc, {
+        startY: y2 + 14,
+        head: [["Chi tieu", "Gia tri"]],
+        body: [
+          ["Tong so lop hoc", String(stats?.totalClasses ?? 0)],
+          ["Tong bai tap", String(stats?.totalAssignments ?? 0)],
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [41, 98, 255] },
+      });
 
-4. DUNG LƯỢNG LƯU TRỮ
----------------------
-(Chưa có API theo dõi dung lượng)
-`;
-    const blob = new Blob([reportContent], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `LMS_Report_${new Date().toISOString().split("T")[0]}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      // Section 3: Submissions
+      const y3 = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable?.finalY ?? 120;
+      doc.setFontSize(14);
+      doc.text("3. Bai nop", 14, y3 + 10);
+      autoTable(doc, {
+        startY: y3 + 14,
+        head: [["Chi tieu", "Gia tri"]],
+        body: [
+          ["Tong bai nop", String(submissionsStats?.total ?? 0)],
+          ["Dung han", String(submissionsStats?.onTime ?? 0)],
+          ["Tre han", String(submissionsStats?.late ?? 0)],
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [41, 98, 255] },
+      });
+
+      // Section 4: Grade distribution
+      const y4 = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable?.finalY ?? 160;
+      doc.setFontSize(14);
+      doc.text("4. Phan bo diem so", 14, y4 + 10);
+      autoTable(doc, {
+        startY: y4 + 14,
+        head: [["Muc diem", "Ty le (%)"]],
+        body: [
+          ["Xuat sac (>=90%)", `${gradesStats?.percentages?.excellent?.toFixed(1) ?? 0}%`],
+          ["Gioi (80-89%)", `${gradesStats?.percentages?.good?.toFixed(1) ?? 0}%`],
+          ["Kha (65-79%)", `${gradesStats?.percentages?.average?.toFixed(1) ?? 0}%`],
+          ["Trung binh (50-64%)", `${gradesStats?.percentages?.belowAverage?.toFixed(1) ?? 0}%`],
+          ["Yeu (<50%)", `${gradesStats?.percentages?.poor?.toFixed(1) ?? 0}%`],
+        ],
+        theme: "grid",
+        headStyles: { fillColor: [41, 98, 255] },
+      });
+
+      doc.save(`LMS_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+    } catch (error) {
+      console.error("Export PDF error:", error);
+    }
     setIsExporting(false);
   };
 
@@ -305,7 +328,7 @@ Khoảng thời gian: ${timeRange === "week" ? "7 ngày qua" : timeRange === "mo
                 <CardContent>
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={getUserGrowthData(stats)}>
+                      <AreaChart data={getUserGrowthData(stats, userGrowthData)}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="month" className="text-xs" />
                         <YAxis className="text-xs" />
@@ -349,7 +372,7 @@ Khoảng thời gian: ${timeRange === "week" ? "7 ngày qua" : timeRange === "mo
                 <CardContent>
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={dailyActiveUsers}>
+                      <LineChart data={dailyActiveData || []}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="date" className="text-xs" />
                         <YAxis className="text-xs" />
@@ -386,7 +409,7 @@ Khoảng thời gian: ${timeRange === "week" ? "7 ngày qua" : timeRange === "mo
               <CardContent>
                 <div className="h-[350px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={getSubmissionData(submissionsStats)}>
+                    <BarChart data={getSubmissionData(submissionsStats, submissionsTimeline)}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis dataKey="week" className="text-xs" />
                       <YAxis className="text-xs" />
@@ -496,7 +519,7 @@ Khoảng thời gian: ${timeRange === "week" ? "7 ngày qua" : timeRange === "mo
               <CardContent>
                 <div className="h-[350px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={classActivityData} layout="vertical">
+                    <BarChart data={classActivityData || []} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                       <XAxis type="number" className="text-xs" />
                       <YAxis dataKey="name" type="category" className="text-xs" width={80} />
@@ -522,7 +545,7 @@ Khoảng thời gian: ${timeRange === "week" ? "7 ngày qua" : timeRange === "mo
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {classActivityData.map((cls, index) => (
+                  {(classActivityData || []).map((cls, index) => (
                     <div key={index} className="flex items-center gap-4">
                       <span className="w-24 text-sm font-medium">{cls.name}</span>
                       <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
@@ -552,7 +575,7 @@ Khoảng thời gian: ${timeRange === "week" ? "7 ngày qua" : timeRange === "mo
                 <CardContent>
                   <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={storageData}>
+                      <AreaChart data={[]}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="month" className="text-xs" />
                         <YAxis className="text-xs" />
@@ -574,6 +597,7 @@ Khoảng thời gian: ${timeRange === "week" ? "7 ngày qua" : timeRange === "mo
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
+                  <p className="text-sm text-muted-foreground text-center mt-2">Dữ liệu lưu trữ trên Cloudinary — chưa có API theo dõi</p>
                 </CardContent>
               </Card>
 

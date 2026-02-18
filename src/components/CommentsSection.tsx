@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { MessageSquare, Send, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { CommentItem } from "@/api";
 import { useAuth } from "@/context/AuthContext";
+import { useSocketEvent } from "@/hooks/useSocketEvent";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -43,6 +44,7 @@ export function CommentsSection({
   const [editContent, setEditContent] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
+  // Always use assignmentId as the primary key for comments so teacher & student see the same thread
   const queryKey =
     assignmentId != null
       ? ["comments", "assignment", assignmentId]
@@ -51,13 +53,27 @@ export function CommentsSection({
         : [];
   const params = new URLSearchParams();
   if (assignmentId != null) params.set("assignmentId", String(assignmentId));
-  if (submissionId != null) params.set("submissionId", String(submissionId));
+  else if (submissionId != null) params.set("submissionId", String(submissionId));
 
   const { data: comments = [], isLoading } = useQuery({
     queryKey,
     queryFn: () => api.get<CommentItem[]>(`/comments?${params.toString()}`),
     enabled: assignmentId != null || submissionId != null,
   });
+
+  // Realtime: auto-refetch comments on socket event
+  const handleCommentNew = useCallback(
+    (data: { assignmentId?: number; submissionId?: number; author_id?: number }) => {
+      const isForMe =
+        (assignmentId != null && data.assignmentId === assignmentId) ||
+        (submissionId != null && data.submissionId === submissionId);
+      if (isForMe && data.author_id !== user?.id) {
+        queryClient.invalidateQueries({ queryKey });
+      }
+    },
+    [assignmentId, submissionId, user?.id, queryClient, queryKey]
+  );
+  useSocketEvent("comment:new", handleCommentNew);
 
   const createMutation = useMutation({
     mutationFn: (content: string) =>

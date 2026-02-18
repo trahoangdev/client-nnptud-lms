@@ -357,6 +357,7 @@ export default function AdminActivityLogPage() {
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
             ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -404,6 +405,7 @@ export default function AdminActivityLogPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
             )}
 
             {/* Pagination */}

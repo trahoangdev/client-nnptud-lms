@@ -354,6 +354,7 @@ export default function UsersManagementPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -477,6 +478,7 @@ export default function UsersManagementPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
 
             {/* Pagination */}
             {totalPages > 1 && (

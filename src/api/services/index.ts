@@ -11,3 +11,5 @@ export { gradesService } from "./grades";
 export { commentsService } from "./comments";
 export { uploadService } from "./upload";
 export { adminService } from "./admin";
+export { notificationsService } from "./notifications";
+export { dashboardService } from "./dashboard";

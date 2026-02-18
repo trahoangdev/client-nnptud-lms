@@ -17,6 +17,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  avatar?: string | null;
 }
 
 export interface UserProfile extends AuthUser {
@@ -223,4 +224,113 @@ export interface PaginatedResponse<T> {
   total: number;
   page: number;
   limit: number;
+}
+
+// ================== NOTIFICATIONS ==================
+
+export interface NotificationItem {
+  id: number;
+  userId: number;
+  type: "submission" | "grade" | "comment" | "assignment" | "system";
+  title: string;
+  message: string;
+  link: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+// ================== GRADEBOOK ==================
+
+export interface GradebookAssignment {
+  id: number;
+  title: string;
+  maxScore: number;
+  dueDate: string | null;
+}
+
+export interface GradebookCell {
+  assignmentId: number;
+  submitted: boolean;
+  status: string;
+  submittedAt: string | null;
+  score: number | null;
+  graded: boolean;
+  submissionId: number | null;
+}
+
+export interface GradebookStudent {
+  studentId: number;
+  studentName: string;
+  studentEmail: string;
+  grades: GradebookCell[];
+}
+
+export interface GradebookData {
+  classId: number;
+  assignments: GradebookAssignment[];
+  students: GradebookStudent[];
+  stats: {
+    totalStudents: number;
+    totalAssignments: number;
+    submissionRate: number;
+    gradingRate: number;
+    lateSubmissions: number;
+  };
+}
+
+// ================== DASHBOARD STATS ==================
+
+export interface TeacherAssignmentStat {
+  id: number;
+  title: string;
+  maxScore: number;
+  dueDate: string | null;
+  submissionCount: number;
+  totalStudents: number;
+  submissionRate: number;
+}
+
+export interface TeacherClassStat {
+  classId: number;
+  className: string;
+  totalStudents: number;
+  totalAssignments: number;
+  assignments: TeacherAssignmentStat[];
+}
+
+export interface RecentSubmission {
+  id: number;
+  studentName: string;
+  assignmentTitle: string;
+  className: string;
+  classId: number;
+  assignmentId: number;
+  status: string;
+  submittedAt: string;
+}
+
+export interface TeacherDashboardStats {
+  classStats: TeacherClassStat[];
+  pendingGrading: number;
+  totalGraded: number;
+  recentSubmissions: RecentSubmission[];
+}
+
+export interface StudentDashboardStats {
+  totalClasses: number;
+  totalAssignments: number;
+  submittedCount: number;
+  gradedCount: number;
+  lateCount: number;
+  avgScore: number | null;
+  submissionRate: number;
+  dueSoon: { id: number; title: string; dueDate: string; classId: number }[];
+  classGrades: {
+    classId: number;
+    className: string;
+    avgScore: number | null;
+    assignmentsTotal: number;
+    submitted: number;
+    graded: number;
+  }[];
 }

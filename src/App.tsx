@@ -1,9 +1,13 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
+import { SocketProvider } from "@/context/SocketContext";
+import { NotificationProvider } from "@/context/NotificationContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { HomeOrDashboard } from "@/components/HomeOrDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
@@ -27,16 +31,23 @@ import StudentAssignmentDetailPage from "./pages/StudentAssignmentDetailPage";
 import StudentGradesPage from "./pages/StudentGradesPage";
 import StudentSettingsPage from "./pages/StudentSettingsPage";
 import StudentCalendarPage from "./pages/StudentCalendarPage";
+import TeacherConversationsPage from "./pages/TeacherConversationsPage";
+import StudentConversationsPage from "./pages/StudentConversationsPage";
+import TeacherCalendarPage from "./pages/TeacherCalendarPage";
 
 const queryClient = new QueryClient();
 
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <SocketProvider>
+          <NotificationProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
 
@@ -63,6 +74,22 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["teacher"]}>
                   <AssignmentDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/conversations"
+              element={
+                <ProtectedRoute allowedRoles={["teacher"]}>
+                  <TeacherConversationsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/calendar"
+              element={
+                <ProtectedRoute allowedRoles={["teacher"]}>
+                  <TeacherCalendarPage />
                 </ProtectedRoute>
               }
             />
@@ -121,6 +148,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["student"]}>
                   <StudentCalendarPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/conversations"
+              element={
+                <ProtectedRoute allowedRoles={["student"]}>
+                  <StudentConversationsPage />
                 </ProtectedRoute>
               }
             />
@@ -194,10 +229,14 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </NotificationProvider>
+          </SocketProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

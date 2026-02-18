@@ -1,36 +1,112 @@
 import { motion } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
+import { MessageSquare, Loader2 } from "lucide-react";
 import { AppLayout } from "@/components/layout";
-import { MessageSquare, Construction } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  ConversationList,
+  ChatHeader,
+  MessageList,
+  MessageInput,
+  MembersPanel,
+} from "@/components/conversations";
+import { useConversations } from "@/hooks/useConversations";
 
 export default function StudentConversationsPage() {
+  const {
+    conversations,
+    selectedConversation,
+    searchQuery,
+    messageInput,
+    messages,
+    showMembers,
+    typingUsers,
+    loadingConversations,
+    loadingMessages,
+    setSearchQuery,
+    setShowMembers,
+    handleSelectConversation,
+    handleSend,
+    handleInputChange,
+  } = useConversations();
+
   return (
     <AppLayout userRole="student">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-center h-[calc(100vh-200px)]"
+        className="h-[calc(100vh-120px)]"
       >
-        <Card className="max-w-md w-full border-dashed">
-          <CardContent className="flex flex-col items-center justify-center p-12 text-center gap-4">
-            <div className="rounded-full bg-muted p-4">
-              <Construction className="w-10 h-10 text-muted-foreground" />
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-primary" />
+            Hội thoại
+          </h1>
+        </div>
+
+        <div className="flex gap-4 h-[calc(100%-48px)]">
+          {/* Sidebar / Conversation list */}
+          {loadingConversations ? (
+            <div className="w-72 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold flex items-center gap-2 justify-center">
-                <MessageSquare className="w-5 h-5" />
-                Hội thoại
-              </h2>
-              <p className="text-muted-foreground">
-                Tính năng tin nhắn đang được phát triển. Bạn sẽ có thể trao đổi trực tiếp 
-                với giáo viên và bạn học trong thời gian tới.
-              </p>
-            </div>
-            <span className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full font-medium">
-              Sắp ra mắt
-            </span>
-          </CardContent>
-        </Card>
+          ) : (
+            <ConversationList
+              conversations={conversations}
+              selectedConversation={selectedConversation}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              onSelectConversation={handleSelectConversation}
+            />
+          )}
+
+          {/* Main chat area */}
+          {selectedConversation ? (
+            <>
+              <Card className="flex-1 border-0 shadow-md flex flex-col overflow-hidden">
+                <ChatHeader
+                  conversation={selectedConversation}
+                  showMembers={showMembers}
+                  onToggleMembers={() => setShowMembers(!showMembers)}
+                />
+                {loadingMessages ? (
+                  <CardContent className="flex-1 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                  </CardContent>
+                ) : (
+                  <MessageList messages={messages} />
+                )}
+                {/* Typing indicator */}
+                {typingUsers.length > 0 && (
+                  <div className="px-4 pb-1 text-xs text-muted-foreground italic">
+                    {typingUsers.map((t) => t.userName).join(", ")} đang nhập...
+                  </div>
+                )}
+                <MessageInput
+                  value={messageInput}
+                  onChange={handleInputChange}
+                  onSend={handleSend}
+                />
+              </Card>
+
+              <MembersPanel
+                members={selectedConversation.members}
+                show={showMembers}
+                onClose={() => setShowMembers(false)}
+              />
+            </>
+          ) : (
+            <Card className="flex-1 border-0 shadow-md flex items-center justify-center">
+              <CardContent className="text-center space-y-3 py-12">
+                <div className="rounded-full bg-muted p-4 mx-auto w-fit">
+                  <MessageSquare className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground">
+                  Chọn một cuộc hội thoại để bắt đầu nhắn tin
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </motion.div>
     </AppLayout>
   );

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Check, CheckCheck } from "lucide-react";
 import { CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,18 +13,39 @@ interface MessageListProps {
 }
 
 export function MessageList({ messages }: MessageListProps) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  // Group messages by date
+  const groupedMessages: { date: string; msgs: Message[] }[] = [];
+  let currentDate = "";
+  for (const msg of messages) {
+    if (msg.date !== currentDate) {
+      currentDate = msg.date;
+      groupedMessages.push({ date: msg.date, msgs: [msg] });
+    } else {
+      groupedMessages[groupedMessages.length - 1].msgs.push(msg);
+    }
+  }
+
   return (
     <CardContent className="flex-1 overflow-hidden p-0">
       <ScrollArea className="h-full p-4">
         <div className="space-y-4">
-          {/* Date separator */}
-          <div className="flex items-center gap-4 my-4">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground px-2">Hôm nay</span>
-            <Separator className="flex-1" />
-          </div>
-
-          {messages.map((msg) => (
+          {groupedMessages.map((group) => (
+            <div key={group.date}>
+              <div className="flex items-center gap-4 my-4">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground px-2">
+                  {group.date}
+                </span>
+                <Separator className="flex-1" />
+              </div>
+              {group.msgs.map((msg) => (
             <div
               key={msg.id}
               className={cn("flex gap-3", msg.isOwn ? "flex-row-reverse" : "")}
@@ -86,6 +108,9 @@ export function MessageList({ messages }: MessageListProps) {
               </div>
             </div>
           ))}
+            </div>
+          ))}
+          <div ref={bottomRef} />
         </div>
       </ScrollArea>
     </CardContent>

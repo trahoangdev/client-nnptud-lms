@@ -35,10 +35,6 @@ export function ConversationList({
     >
       <Card className="h-full border-0 shadow-md flex flex-col">
         <CardHeader className="pb-2 px-3 pt-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <MessageSquare className="w-4 h-4 text-primary" />
-            Hội thoại
-          </CardTitle>
           <div className="relative mt-2">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input

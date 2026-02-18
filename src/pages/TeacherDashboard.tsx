@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   BookOpen,
@@ -22,7 +22,10 @@ import { CreateClassModal, CreateAssignmentModal } from "@/components/modals";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { ClassItem } from "@/api";
+import type { TeacherDashboardStats, RecentSubmission } from "@/api/types";
 import { useAuth } from "@/context/AuthContext";
+import { useSocketEvent } from "@/hooks/useSocketEvent";
+import { toast } from "sonner";
 
 const COLORS = [
   "from-primary to-primary/70",
@@ -52,6 +55,23 @@ export default function TeacherDashboard() {
   const { data: classes = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["teacher-classes"],
     queryFn: () => api.get<ClassItem[]>("/classes"),
+  });
+
+  // Realtime: refetch when a student submits
+  const handleSubmissionNew = useCallback(
+    (data: { student_id?: number; assignment_id?: number }) => {
+      refetch();
+      refetchStats();
+      toast.info("Có bài nộp mới!", { description: `Bài tập #${data.assignment_id}` });
+    },
+    [refetch]
+  );
+  useSocketEvent("submission:new", handleSubmissionNew);
+
+  // Fetch dashboard stats (pending grading, recent submissions)
+  const { data: dashStats, refetch: refetchStats } = useQuery({
+    queryKey: ["teacher-dashboard-stats"],
+    queryFn: () => api.get<TeacherDashboardStats>("/teacher/dashboard-stats"),
   });
 
   const stats = {
@@ -138,7 +158,7 @@ export default function TeacherDashboard() {
                 { title: "Tổng lớp học", value: String(stats.totalClasses), icon: BookOpen, change: "", color: "primary" },
                 { title: "Học sinh", value: String(stats.totalStudents), icon: Users, change: "", color: "info" },
                 { title: "Bài tập đã giao", value: String(stats.totalAssignments), icon: FileText, change: "", color: "success" },
-                { title: "Chờ chấm điểm", value: "–", icon: Clock, change: "Xem tại từng lớp", color: "warning" },
+                { title: "Chờ chấm điểm", value: String(dashStats?.pendingGrading ?? "–"), icon: Clock, change: dashStats?.pendingGrading ? "Cần chấm" : "", color: "warning" },
               ].map((stat) => (
                 <motion.div key={stat.title} variants={item}>
                   <Card className="card-interactive border-0 shadow-md">
@@ -218,12 +238,35 @@ export default function TeacherDashboard() {
                       <Clock className="w-5 h-5 text-warning" />
                       Bài nộp mới
                     </CardTitle>
-                    <CardDescription>Vào từng lớp → bài tập → tab Submissions để chấm</CardDescription>
+                    <CardDescription>Bài nộp gần đây nhất</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Button variant="outline" className="w-full" size="sm" asChild>
-                      <Link to="/classes">Xem lớp học</Link>
-                    </Button>
+                  <CardContent className="space-y-3">
+                    {dashStats?.recentSubmissions && dashStats.recentSubmissions.length > 0 ? (
+                      dashStats.recentSubmissions.slice(0, 5).map((sub) => (
+                        <Link
+                          key={sub.id}
+                          to={`/assignments/${sub.assignmentId}`}
+                          className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="mt-0.5">
+                            {sub.status === "LATE_SUBMITTED" ? (
+                              <AlertCircle className="w-4 h-4 text-warning" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 text-success" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{sub.studentName}</p>
+                            <p className="text-xs text-muted-foreground truncate">{sub.assignmentTitle}</p>
+                            <p className="text-xs text-muted-foreground/60">
+                              {new Date(sub.submittedAt).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
+                        </Link>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">Chưa có bài nộp</p>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -10,9 +10,21 @@ import {
   AlertTriangle,
   Calendar,
   BookOpen,
+  XCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { AppLayout } from "@/components/layout";
 import { FileUpload } from "@/components/FileUpload";
 import { CommentsSection } from "@/components/CommentsSection";
@@ -22,6 +34,8 @@ import { api, apiUpload } from "@/api/client";
 import type { AssignmentItem, SubmissionItem } from "@/api";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { useSocket } from "@/context/SocketContext";
+import { useSocketEvent } from "@/hooks/useSocketEvent";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { differenceInDays, parseISO } from "date-fns";
@@ -29,7 +43,16 @@ import { differenceInDays, parseISO } from "date-fns";
 export default function StudentAssignmentDetailPage() {
   const { id } = useParams();
   const queryClient = useQueryClient();
+  const { joinAssignmentRoom, leaveAssignmentRoom } = useSocket();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Join assignment room for realtime events
+  useEffect(() => {
+    if (id) {
+      joinAssignmentRoom(Number(id));
+      return () => leaveAssignmentRoom(Number(id));
+    }
+  }, [id, joinAssignmentRoom, leaveAssignmentRoom]);
 
   const { data: assignment, isLoading: loadingAssignment, isError: assignmentError, error: assignmentErrorDetail } = useQuery({
     queryKey: ["assignment", id],
@@ -42,6 +65,20 @@ export default function StudentAssignmentDetailPage() {
     queryFn: () => api.get<SubmissionItem[]>(`/assignments/${id}/submissions`),
     enabled: !!id,
   });
+
+  // Realtime: auto-refetch when grade updated
+  const handleGradeUpdated = useCallback(
+    (data: { submission_id?: number; score?: number; assignment_title?: string }) => {
+      refetchSubmissions();
+      toast.success("Đã có điểm mới!", {
+        description: data.assignment_title
+          ? `${data.assignment_title}: ${data.score} điểm`
+          : `Điểm: ${data.score}`,
+      });
+    },
+    [refetchSubmissions]
+  );
+  useSocketEvent("grade:updated", handleGradeUpdated);
 
   const submitMutation = useMutation({
     mutationFn: async ({ fileUrl }: { fileUrl: string }) =>
@@ -58,12 +95,26 @@ export default function StudentAssignmentDetailPage() {
     },
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: async (submissionId: number) =>
+      api.delete(`/submissions/${submissionId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assignment-submissions", id] });
+      queryClient.invalidateQueries({ queryKey: ["student-assignments"] });
+      toast.success("Đã huỷ nộp bài!");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Huỷ nộp thất bại");
+    },
+  });
+
   const mySubmission = mySubmissions[0] ?? null;
   const dueDate = assignment?.dueDate ? parseISO(assignment.dueDate) : null;
   const daysLeft = dueDate ? differenceInDays(dueDate, new Date()) : 999;
   const isOverdue = daysLeft < 0;
   const hasSubmission = !!mySubmission;
   const isGraded = !!mySubmission?.grade;
+  const canCancel = hasSubmission && !isGraded && !isOverdue;
 
   const handleSubmit = async (file: File) => {
     if (!id) return;
@@ -253,6 +304,43 @@ export default function StudentAssignmentDetailPage() {
                           </Button>
                         )}
                       </div>
+                      {canCancel && (
+                        <div className="pt-4 border-t">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                disabled={cancelMutation.isPending}
+                              >
+                                {cancelMutation.isPending ? (
+                                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                ) : (
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                )}
+                                Huỷ nộp bài
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Huỷ nộp bài?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Bạn có chắc muốn huỷ nộp bài? Bài nộp sẽ bị xoá và bạn sẽ cần nộp lại.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Không</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  onClick={() => cancelMutation.mutate(mySubmission!.id)}
+                                >
+                                  Xác nhận huỷ
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      )}
                       {!isGraded && (
                         <div className="pt-4 border-t">
                           <p className="text-sm font-medium mb-3">Nộp lại bài (thay thế bài cũ)</p>

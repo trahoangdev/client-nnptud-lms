@@ -328,6 +328,7 @@ export default function ClassesManagementPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -451,6 +452,7 @@ export default function ClassesManagementPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
 
             {/* Pagination */}
             {totalPages > 1 && (

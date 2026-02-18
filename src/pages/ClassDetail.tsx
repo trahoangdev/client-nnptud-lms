@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -66,16 +66,19 @@ import { AppLayout } from "@/components/layout";
 import { CreateAssignmentModal, EditAssignmentModal, EditClassModal, AddMemberModal } from "@/components/modals";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { exportGradebookToExcel } from "@/lib/exportGradebook";
+import { exportGradebookToExcel, exportGradebookToCSV, exportGradebookToPDF } from "@/lib/exportGradebook";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import type { ClassDetailItem, AssignmentItem, SubmissionItem } from "@/api";
 import { Loader2 } from "lucide-react";
+import { useSocket } from "@/context/SocketContext";
+import { useSocketEvent } from "@/hooks/useSocketEvent";
 
 export default function ClassDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { joinClassRoom, leaveClassRoom } = useSocket();
   const [activeTab, setActiveTab] = useState("assignments");
   const [showCreateAssignment, setShowCreateAssignment] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<AssignmentItem | null>(null);
@@ -119,6 +122,23 @@ export default function ClassDetail() {
     queryFn: () => api.get<(AssignmentItem & { _count?: { submissions: number } })[]>(`/classes/${id}/assignments`),
     enabled: !!id,
   });
+
+  // Join class room for realtime events
+  useEffect(() => {
+    if (id) {
+      joinClassRoom(Number(id));
+      return () => leaveClassRoom(Number(id));
+    }
+  }, [id, joinClassRoom, leaveClassRoom]);
+
+  // Realtime: auto-refetch on submissions/grades
+  const handleRealtimeRefresh = useCallback(() => {
+    refetchAssignments();
+    queryClient.invalidateQueries({ queryKey: ["class-submissions", id] });
+    queryClient.invalidateQueries({ queryKey: ["class", id] });
+  }, [refetchAssignments, queryClient, id]);
+  useSocketEvent("submission:new", handleRealtimeRefresh);
+  useSocketEvent("grade:updated", handleRealtimeRefresh);
 
   const classData = classDetail
     ? {
@@ -293,6 +313,52 @@ export default function ClassDetail() {
       });
     } catch (error) {
       toast.error("Lỗi khi xuất file Excel");
+      console.error(error);
+    }
+  };
+
+  const getExportOptions = () => {
+    if (!classData) return null;
+    const exportData = gradebook.map((student) => ({
+      studentId: student.studentId,
+      name: student.name,
+      scores: student.scores as Record<string, number | null>,
+      average: student.average,
+    }));
+    const exportAssignments = assignments.map((a) => ({
+      id: a.id,
+      title: a.title,
+      maxScore: a.maxScore,
+    }));
+    return {
+      className: classData.name,
+      classCode: classData.code,
+      teacherName: classDetail?.teacher?.name ?? "",
+      assignments: exportAssignments,
+      gradebook: exportData,
+    };
+  };
+
+  const handleExportCSV = () => {
+    const opts = getExportOptions();
+    if (!opts) return;
+    try {
+      const filename = exportGradebookToCSV(opts);
+      toast.success("Xuất CSV thành công!", { description: `File ${filename} đã được tải về` });
+    } catch (error) {
+      toast.error("Lỗi khi xuất file CSV");
+      console.error(error);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    const opts = getExportOptions();
+    if (!opts) return;
+    try {
+      const filename = await exportGradebookToPDF(opts);
+      toast.success("Xuất PDF thành công!", { description: `File ${filename} đã được tải về` });
+    } catch (error) {
+      toast.error("Lỗi khi xuất file PDF");
       console.error(error);
     }
   };
@@ -708,10 +774,28 @@ export default function ClassDetail() {
                       </SelectContent>
                     </Select>
 
-                    <Button variant="outline" size="sm" onClick={handleExportGradebook}>
-                      <Download className="w-4 h-4 mr-2" />
-                      Xuất Excel
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Download className="w-4 h-4 mr-2" />
+                          Xuất bảng điểm
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleExportGradebook}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          Xuất Excel (.xlsx)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleExportCSV}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          Xuất CSV (.csv)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleExportPDF}>
+                          <FileText className="w-4 h-4 mr-2" />
+                          Xuất PDF (.pdf)
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardHeader>
                 <CardContent>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useTheme } from "next-themes";
 import {
   User,
   Bell,
@@ -38,9 +39,10 @@ import {
 import { AppLayout } from "@/components/layout";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
+import { api } from "@/api/client";
 
 export default function StudentSettingsPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const [profile, setProfile] = useState({
@@ -80,8 +82,9 @@ export default function StudentSettingsPage() {
   });
 
   // Appearance settings
+  const { theme: currentTheme, setTheme: setNextTheme } = useTheme();
   const [appearance, setAppearance] = useState({
-    theme: "system",
+    theme: currentTheme || "system",
     language: "vi",
     compactMode: false,
     showDeadlineCountdown: true,
@@ -98,8 +101,14 @@ export default function StudentSettingsPage() {
 
   const handleSaveProfile = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    toast.success("Đã lưu thông tin cá nhân!");
+    try {
+      await api.patch("/me", { name: profile.fullName, email: profile.email });
+      toast.success("Đã lưu thông tin cá nhân!");
+      refreshUser();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Lỗi cập nhật hồ sơ";
+      toast.error(msg);
+    }
     setIsLoading(false);
   };
 
@@ -112,7 +121,8 @@ export default function StudentSettingsPage() {
 
   const handleSaveAppearance = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    setNextTheme(appearance.theme);
+    await new Promise((resolve) => setTimeout(resolve, 300));
     toast.success("Đã cập nhật giao diện!");
     setIsLoading(false);
   };
@@ -124,8 +134,30 @@ export default function StudentSettingsPage() {
     setIsLoading(false);
   };
 
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+
   const handleChangePassword = async () => {
-    toast.info("Chức năng đổi mật khẩu sẽ sớm được cập nhật!");
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      toast.error("Vui lòng nhập mật khẩu hiện tại và mật khẩu mới");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("Mật khẩu xác nhận không khớp");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await api.patch("/me/password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      toast.success("Đổi mật khẩu thành công!");
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Lỗi đổi mật khẩu";
+      toast.error(msg);
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -177,13 +209,42 @@ export default function StudentSettingsPage() {
                 </CardHeader>
                 <CardContent className="flex items-center gap-6">
                   <Avatar className="w-24 h-24">
-                    <AvatarImage src="" />
+                    <AvatarImage src={user?.avatar ?? ""} />
                     <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                       {profile.fullName.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="space-y-2">
-                    <Button variant="outline" size="sm">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      id="student-avatar-upload"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 2 * 1024 * 1024) {
+                          toast.error("File quá lớn. Tối đa 2MB.");
+                          return;
+                        }
+                        const formData = new FormData();
+                        formData.append("file", file);
+                        try {
+                          const token = localStorage.getItem("token");
+                          const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/me/avatar`, {
+                            method: "POST",
+                            headers: { Authorization: `Bearer ${token}` },
+                            body: formData,
+                          });
+                          if (!res.ok) throw new Error("Upload failed");
+                          toast.success("Cập nhật ảnh đại diện thành công!");
+                          refreshUser();
+                        } catch {
+                          toast.error("Lỗi upload ảnh đại diện");
+                        }
+                      }}
+                    />
+                    <Button variant="outline" size="sm" onClick={() => document.getElementById("student-avatar-upload")?.click()}>
                       <Camera className="w-4 h-4 mr-2" />
                       Thay đổi ảnh
                     </Button>
@@ -310,6 +371,8 @@ export default function StudentSettingsPage() {
                           type="password"
                           placeholder="••••••••"
                           className="pl-10"
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
                         />
                       </div>
                     </div>
@@ -319,6 +382,8 @@ export default function StudentSettingsPage() {
                         id="newPassword"
                         type="password"
                         placeholder="••••••••"
+                        value={passwordForm.newPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
@@ -327,6 +392,8 @@ export default function StudentSettingsPage() {
                         id="confirmPassword"
                         type="password"
                         placeholder="••••••••"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                       />
                     </div>
                   </div>

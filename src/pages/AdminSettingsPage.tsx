@@ -11,6 +11,7 @@ import {
   Lock,
   Key,
   Users,
+  User,
   Server,
   RefreshCw,
   Download,
@@ -22,6 +23,7 @@ import {
   Save,
   Eye,
   EyeOff,
+  Camera,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,16 +49,94 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AppLayout } from "@/components/layout";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
+import { authService } from "@/api/services/auth";
 import { Loader2 } from "lucide-react";
 
 export default function AdminSettingsPage() {
+  const { user, refreshUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const queryClient = useQueryClient();
+
+  // Profile state
+  const [profile, setProfile] = useState({
+    fullName: user?.name ?? "",
+    email: user?.email ?? "",
+  });
+
+  useEffect(() => {
+    if (user) {
+      setProfile((p) => ({
+        ...p,
+        fullName: user.name ?? p.fullName,
+        email: user.email ?? p.email,
+      }));
+    }
+  }, [user?.name, user?.email]);
+
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  const handleSaveProfile = async () => {
+    setIsLoading(true);
+    try {
+      await authService.updateProfile({ name: profile.fullName, email: profile.email });
+      toast.success("Đã lưu thông tin cá nhân!");
+      refreshUser();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Lỗi cập nhật hồ sơ";
+      toast.error(msg);
+    }
+    setIsLoading(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      toast.error("Vui lòng nhập mật khẩu hiện tại và mật khẩu mới");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      toast.error("Mật khẩu xác nhận không khớp");
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      toast.error("Mật khẩu mới phải có ít nhất 6 ký tự");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await authService.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      toast.success("Đổi mật khẩu thành công!");
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Lỗi đổi mật khẩu";
+      toast.error(msg);
+    }
+    setIsLoading(false);
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("File quá lớn. Tối đa 2MB.");
+      return;
+    }
+    try {
+      await authService.uploadAvatar(file);
+      toast.success("Cập nhật ảnh đại diện thành công!");
+      refreshUser();
+    } catch {
+      toast.error("Lỗi upload ảnh đại diện");
+    }
+  };
 
   // Fetch settings from API
   const { data: settingsData, isLoading: settingsLoading } = useQuery({
@@ -345,6 +425,10 @@ export default function AdminSettingsPage() {
         {/* Settings Tabs */}
         <Tabs defaultValue="system" className="space-y-6">
           <TabsList className="bg-muted/50 p-1 h-auto flex-wrap">
+            <TabsTrigger value="profile" className="gap-2">
+              <User className="w-4 h-4" />
+              <span className="hidden sm:inline">Hồ sơ</span>
+            </TabsTrigger>
             <TabsTrigger value="system" className="gap-2">
               <Settings className="w-4 h-4" />
               <span className="hidden sm:inline">Hệ thống</span>
@@ -366,6 +450,149 @@ export default function AdminSettingsPage() {
               <span className="hidden sm:inline">Thông báo</span>
             </TabsTrigger>
           </TabsList>
+
+          {/* Profile Tab */}
+          <TabsContent value="profile">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              {/* Avatar Section */}
+              <Card className="border-0 shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg">Ảnh đại diện</CardTitle>
+                  <CardDescription>
+                    Ảnh đại diện giúp người khác nhận ra bạn dễ dàng hơn
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center gap-6">
+                  <Avatar className="w-24 h-24">
+                    <AvatarImage src={user?.avatar ?? ""} />
+                    <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                      {profile.fullName.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      id="admin-avatar-upload"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAvatarUpload(file);
+                      }}
+                    />
+                    <Button variant="outline" size="sm" onClick={() => document.getElementById("admin-avatar-upload")?.click()}>
+                      <Camera className="w-4 h-4 mr-2" />
+                      Thay đổi ảnh
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      JPG, PNG hoặc GIF. Tối đa 2MB.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Personal Info */}
+              <Card className="border-0 shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg">Thông tin cá nhân</CardTitle>
+                  <CardDescription>Cập nhật tên và email của bạn</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-fullname">Họ và tên</Label>
+                      <Input
+                        id="admin-fullname"
+                        value={profile.fullName}
+                        onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
+                        placeholder="Nguyễn Văn A"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-email">Email</Label>
+                      <Input
+                        id="admin-email"
+                        type="email"
+                        value={profile.email}
+                        onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                        placeholder="admin@lms.edu.vn"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button onClick={handleSaveProfile} disabled={isLoading}>
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4 mr-2" />
+                      )}
+                      Lưu thông tin
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Change Password */}
+              <Card className="border-0 shadow-md">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Key className="w-5 h-5 text-primary" />
+                    Đổi mật khẩu
+                  </CardTitle>
+                  <CardDescription>Thay đổi mật khẩu đăng nhập của bạn</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="max-w-md space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-current-password">Mật khẩu hiện tại</Label>
+                      <Input
+                        id="admin-current-password"
+                        type="password"
+                        value={passwordForm.currentPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-new-password">Mật khẩu mới</Label>
+                      <Input
+                        id="admin-new-password"
+                        type="password"
+                        value={passwordForm.newPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="admin-confirm-password">Xác nhận mật khẩu mới</Label>
+                      <Input
+                        id="admin-confirm-password"
+                        type="password"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="flex justify-end">
+                    <Button onClick={handleChangePassword} disabled={isLoading}>
+                      {isLoading ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Key className="w-4 h-4 mr-2" />
+                      )}
+                      Đổi mật khẩu
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
 
           {/* System Tab */}
           <TabsContent value="system">

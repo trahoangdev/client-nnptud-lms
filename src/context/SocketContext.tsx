@@ -9,6 +9,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useState,
   useCallback,
   useRef,
   ReactNode,
@@ -47,6 +48,7 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const connectedRef = useRef(false);
+  const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
 
   // Connect / disconnect based on auth state
   useEffect(() => {
@@ -54,9 +56,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     if (user && token && !connectedRef.current) {
       const sock = connectSocket(token);
       connectedRef.current = true;
+      setSocketInstance(sock);
 
       // Auto-join personal room + role room
       sock.on("connect", () => {
+        // Re-set instance on reconnect to trigger consumer re-renders
+        setSocketInstance(sock);
         joinRoom({
           userId: user.id,
           role: user.role.toUpperCase(),
@@ -75,6 +80,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     if (!user && connectedRef.current) {
       disconnectSocket();
       connectedRef.current = false;
+      setSocketInstance(null);
     }
 
     return () => {
@@ -155,7 +161,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   );
 
   const value: SocketContextValue = {
-    socket: getSocket(),
+    socket: socketInstance,
     joinClassRoom,
     joinAssignmentRoom,
     joinSubmissionRoom,

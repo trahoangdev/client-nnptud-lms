@@ -40,6 +40,7 @@ import { AppLayout } from "@/components/layout";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { api } from "@/api/client";
+import { authService } from "@/api/services/auth";
 
 export default function StudentSettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -65,20 +66,27 @@ export default function StudentSettingsPage() {
     }
   }, [user?.id, user?.name, user?.email]);
 
-  // Notification settings - student specific
-  const [notifications, setNotifications] = useState({
-    // Email
-    emailNewAssignment: true,
-    emailGradeUpdate: true,
-    emailComment: true,
-    emailDeadlineReminder: true,
-    // Push
-    pushNewAssignment: true,
-    pushGradeUpdate: true,
-    pushComment: true,
-    pushDeadlineReminder: true,
-    // Reminder settings
-    reminderHours: "24", // hours before deadline
+  // Notification settings - student specific — persist in localStorage
+  const NOTIF_STORAGE_KEY = "lms_notif_settings_student";
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      const saved = localStorage.getItem(NOTIF_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return {
+      // Email
+      emailNewAssignment: true,
+      emailGradeUpdate: true,
+      emailComment: true,
+      emailDeadlineReminder: true,
+      // Push
+      pushNewAssignment: true,
+      pushGradeUpdate: true,
+      pushComment: true,
+      pushDeadlineReminder: true,
+      // Reminder settings
+      reminderHours: "24", // hours before deadline
+    };
   });
 
   // Appearance settings
@@ -91,12 +99,19 @@ export default function StudentSettingsPage() {
     sortAssignmentsBy: "deadline",
   });
 
-  // Privacy settings
-  const [privacy, setPrivacy] = useState({
-    showEmail: false,
-    showPhone: false,
-    showProfileToClassmates: true,
-    allowTeacherContact: true,
+  // Privacy settings — persist in localStorage
+  const PRIVACY_STORAGE_KEY = "lms_privacy_settings_student";
+  const [privacy, setPrivacy] = useState(() => {
+    try {
+      const saved = localStorage.getItem(PRIVACY_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return {
+      showEmail: false,
+      showPhone: false,
+      showProfileToClassmates: true,
+      allowTeacherContact: true,
+    };
   });
 
   const handleSaveProfile = async () => {
@@ -114,23 +129,30 @@ export default function StudentSettingsPage() {
 
   const handleSaveNotifications = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    toast.success("Đã cập nhật cài đặt thông báo!");
+    try {
+      localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifications));
+      toast.success("Đã cập nhật cài đặt thông báo!");
+    } catch {
+      toast.error("Lỗi lưu cài đặt thông báo");
+    }
     setIsLoading(false);
   };
 
   const handleSaveAppearance = async () => {
     setIsLoading(true);
     setNextTheme(appearance.theme);
-    await new Promise((resolve) => setTimeout(resolve, 300));
     toast.success("Đã cập nhật giao diện!");
     setIsLoading(false);
   };
 
   const handleSavePrivacy = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    toast.success("Đã cập nhật cài đặt quyền riêng tư!");
+    try {
+      localStorage.setItem(PRIVACY_STORAGE_KEY, JSON.stringify(privacy));
+      toast.success("Đã cập nhật cài đặt quyền riêng tư!");
+    } catch {
+      toast.error("Lỗi lưu cài đặt quyền riêng tư");
+    }
     setIsLoading(false);
   };
 
@@ -227,16 +249,8 @@ export default function StudentSettingsPage() {
                           toast.error("File quá lớn. Tối đa 2MB.");
                           return;
                         }
-                        const formData = new FormData();
-                        formData.append("file", file);
                         try {
-                          const token = localStorage.getItem("token");
-                          const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/me/avatar`, {
-                            method: "POST",
-                            headers: { Authorization: `Bearer ${token}` },
-                            body: formData,
-                          });
-                          if (!res.ok) throw new Error("Upload failed");
+                          await authService.uploadAvatar(file);
                           toast.success("Cập nhật ảnh đại diện thành công!");
                           refreshUser();
                         } catch {

@@ -17,33 +17,42 @@ export function MembersPanel({ members, show, onClose }: MembersPanelProps) {
   return (
     <AnimatePresence>
       {show && (
-        <motion.div
-          initial={{ opacity: 0, width: 0 }}
-          animate={{ opacity: 1, width: 220 }}
-          exit={{ opacity: 0, width: 0 }}
-          transition={{ duration: 0.2 }}
-          className="flex-shrink-0 overflow-hidden"
-        >
-          <Card className="h-full border-0 shadow-md w-[220px]">
-            <CardHeader className="py-2.5 px-3">
-              <CardTitle className="text-sm flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Thành viên ({members.length})
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={onClose}
-                >
-                  <PanelRightClose className="w-3.5 h-3.5" />
-                </Button>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="h-[calc(100vh-220px)]">
-                <div className="px-2 pb-2 space-y-1">
+        <>
+          {/* Mobile overlay backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/40 z-40 md:hidden"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className="fixed right-0 top-0 bottom-0 z-50 w-[260px] md:relative md:z-auto md:w-[220px] md:flex-shrink-0"
+          >
+            <Card className="h-full border-0 shadow-md">
+              <CardHeader className="py-2.5 px-3">
+                <CardTitle className="text-sm flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Thành viên ({members.length})
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={onClose}
+                  >
+                    <PanelRightClose className="w-3.5 h-3.5" />
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[calc(100vh-220px)] md:h-[calc(100vh-220px)]">
+                  <div className="px-2 pb-2 space-y-1">
                   {members.map((member) => (
                     <div
                       key={member.id}
@@ -79,6 +88,7 @@ export function MembersPanel({ members, show, onClose }: MembersPanelProps) {
             </CardContent>
           </Card>
         </motion.div>
+        </>
       )}
     </AnimatePresence>
   );

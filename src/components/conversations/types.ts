@@ -18,6 +18,7 @@ export interface Conversation {
   type: "group" | "class" | "direct";
   classId: string | null;
   className: string;
+  roomCode: string | null;
   members: ConversationMember[];
   lastMessage: LastMessage;
   unreadCount: number;

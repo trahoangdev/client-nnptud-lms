@@ -1,8 +1,6 @@
-import { Search, LogOut, Settings, Home } from "lucide-react";
+import { LogOut, Settings, Home } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,35 +34,9 @@ export function Header({ userRole, userName: propUserName, userEmail: propUserEm
   const dashboardPath = userRole === "teacher" ? "/" : userRole === "student" ? "/student" : "/admin";
   const settingsPath = userRole === "teacher" ? "/settings" : userRole === "student" ? "/student/settings" : "/admin/settings";
 
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
   return (
     <header className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-      <div className="flex items-center justify-between h-16 px-4 md:px-6">
-        {/* Search */}
-        <div className="flex-1 max-w-md ml-12 md:ml-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              ref={searchRef}
-              type="search"
-              placeholder="Tìm kiếm... (Ctrl+K)"
-              className="pl-10 bg-muted/50 border-0 focus-visible:ring-1"
-            />
-          </div>
-        </div>
-
+      <div className="flex items-center justify-end h-16 px-4 md:px-6">
         {/* Right section */}
         <div className="flex items-center gap-2 md:gap-4">
           {/* Theme toggle */}

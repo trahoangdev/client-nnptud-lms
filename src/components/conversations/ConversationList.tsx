@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { MessageSquare, Users, Search } from "lucide-react";
+import { MessageSquare, Users, Search, Copy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { Conversation } from "./types";
 
 interface ConversationListProps {
@@ -12,6 +14,7 @@ interface ConversationListProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onSelectConversation: (conversation: Conversation) => void;
+  showRoomCode?: boolean;
 }
 
 export function ConversationList({
@@ -20,7 +23,17 @@ export function ConversationList({
   searchQuery,
   onSearchChange,
   onSelectConversation,
+  showRoomCode = false,
 }: ConversationListProps) {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyRoomCode = (e: React.MouseEvent, code: string, convId: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(code);
+    toast.success("Đã sao chép mã phòng: " + code);
+    setCopiedId(convId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
   const filteredConversations = conversations.filter(
     (conv) =>
       conv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -31,7 +44,7 @@ export function ConversationList({
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      className="w-72 flex-shrink-0"
+      className="w-full md:w-72 flex-shrink-0"
     >
       <Card className="h-full border-0 shadow-md flex flex-col">
         <CardHeader className="pb-2 px-3 pt-3">
@@ -94,6 +107,20 @@ export function ConversationList({
                         {conv.lastMessage.sender.split(" ").pop()}:{" "}
                         {conv.lastMessage.content}
                       </p>
+                      {showRoomCode && conv.roomCode && (
+                        <span
+                          onClick={(e) => handleCopyRoomCode(e, conv.roomCode!, conv.id)}
+                          className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary cursor-pointer transition-colors"
+                          title="Nhấn để sao chép mã phòng"
+                        >
+                          {copiedId === conv.id ? (
+                            <Check className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                          {conv.roomCode}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </button>

@@ -17,9 +17,9 @@ export function MessageInput({ value, onChange, onSend }: MessageInputProps) {
   };
 
   return (
-    <div className="p-4 border-t">
-      <div className="flex items-end gap-2">
-        <div className="flex gap-1">
+    <div className="p-2 md:p-4 border-t">
+      <div className="flex items-end gap-1.5 md:gap-2">
+        <div className="hidden sm:flex gap-1">
           <Button variant="ghost" size="icon" className="shrink-0">
             <Paperclip className="w-4 h-4" />
           </Button>

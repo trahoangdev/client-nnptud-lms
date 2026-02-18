@@ -34,6 +34,7 @@ import {
 import { AppLayout } from "@/components/layout";
 import { toast } from "sonner";
 import { api } from "@/api/client";
+import { authService } from "@/api/services/auth";
 
 interface SettingsPageProps {
   userRole?: "teacher" | "student" | "admin";
@@ -46,7 +47,6 @@ export default function SettingsPage({ userRole = "teacher" }: SettingsPageProps
   const [profile, setProfile] = useState({
     fullName: user?.name ?? "",
     email: user?.email ?? "",
-    phone: "",
   });
 
   useEffect(() => {
@@ -59,15 +59,22 @@ export default function SettingsPage({ userRole = "teacher" }: SettingsPageProps
     }
   }, [user?.name, user?.email]);
 
-  // Notification settings
-  const [notifications, setNotifications] = useState({
-    emailNewAssignment: true,
-    emailGradeUpdate: true,
-    emailComment: false,
-    pushNewAssignment: true,
-    pushGradeUpdate: true,
-    pushComment: true,
-    pushDeadlineReminder: true,
+  // Notification settings — persist in localStorage
+  const NOTIF_STORAGE_KEY = `lms_notif_settings_${userRole}`;
+  const [notifications, setNotifications] = useState(() => {
+    try {
+      const saved = localStorage.getItem(NOTIF_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return {
+      emailNewAssignment: true,
+      emailGradeUpdate: true,
+      emailComment: false,
+      pushNewAssignment: true,
+      pushGradeUpdate: true,
+      pushComment: true,
+      pushDeadlineReminder: true,
+    };
   });
 
   // Appearance settings
@@ -78,11 +85,18 @@ export default function SettingsPage({ userRole = "teacher" }: SettingsPageProps
     compactMode: false,
   });
 
-  // Privacy settings
-  const [privacy, setPrivacy] = useState({
-    showEmail: false,
-    showPhone: false,
-    allowClassInvites: true,
+  // Privacy settings — persist in localStorage
+  const PRIVACY_STORAGE_KEY = `lms_privacy_settings_${userRole}`;
+  const [privacy, setPrivacy] = useState(() => {
+    try {
+      const saved = localStorage.getItem(PRIVACY_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return {
+      showEmail: false,
+      showPhone: false,
+      allowClassInvites: true,
+    };
   });
 
   const handleSaveProfile = async () => {
@@ -100,23 +114,30 @@ export default function SettingsPage({ userRole = "teacher" }: SettingsPageProps
 
   const handleSaveNotifications = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    toast.success("Đã cập nhật cài đặt thông báo!");
+    try {
+      localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifications));
+      toast.success("Đã cập nhật cài đặt thông báo!");
+    } catch {
+      toast.error("Lỗi lưu cài đặt thông báo");
+    }
     setIsLoading(false);
   };
 
   const handleSaveAppearance = async () => {
     setIsLoading(true);
     setTheme(appearance.theme);
-    await new Promise((resolve) => setTimeout(resolve, 300));
     toast.success("Đã cập nhật giao diện!");
     setIsLoading(false);
   };
 
   const handleSavePrivacy = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    toast.success("Đã cập nhật cài đặt bảo mật!");
+    try {
+      localStorage.setItem(PRIVACY_STORAGE_KEY, JSON.stringify(privacy));
+      toast.success("Đã cập nhật cài đặt bảo mật!");
+    } catch {
+      toast.error("Lỗi lưu cài đặt bảo mật");
+    }
     setIsLoading(false);
   };
 
@@ -217,16 +238,8 @@ export default function SettingsPage({ userRole = "teacher" }: SettingsPageProps
                           toast.error("File quá lớn. Tối đa 2MB.");
                           return;
                         }
-                        const formData = new FormData();
-                        formData.append("file", file);
                         try {
-                          const token = localStorage.getItem("token");
-                          const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:3000/api"}/me/avatar`, {
-                            method: "POST",
-                            headers: { Authorization: `Bearer ${token}` },
-                            body: formData,
-                          });
-                          if (!res.ok) throw new Error("Upload failed");
+                          await authService.uploadAvatar(file);
                           toast.success("Cập nhật ảnh đại diện thành công!");
                           refreshUser();
                         } catch {
@@ -283,20 +296,6 @@ export default function SettingsPage({ userRole = "teacher" }: SettingsPageProps
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="phone">Số điện thoại</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="phone"
-                          value={profile.phone}
-                          onChange={(e) =>
-                            setProfile({ ...profile, phone: e.target.value })
-                          }
-                          className="pl-10"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
                       <Label>Vai trò</Label>
                       <Input
                         value={
@@ -306,6 +305,14 @@ export default function SettingsPage({ userRole = "teacher" }: SettingsPageProps
                             ? "Sinh viên"
                             : "Quản trị viên"
                         }
+                        disabled
+                        className="bg-muted"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ngày tham gia</Label>
+                      <Input
+                        value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString("vi-VN") : ""}
                         disabled
                         className="bg-muted"
                       />

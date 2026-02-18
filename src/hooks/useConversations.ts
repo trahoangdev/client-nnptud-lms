@@ -211,6 +211,7 @@ export function useConversations() {
   return {
     conversations,
     selectedConversation,
+    setSelectedConversation,
     searchQuery,
     messageInput,
     messages,

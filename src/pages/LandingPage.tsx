@@ -756,30 +756,128 @@ export default function LandingPage() {
       </section>
 
       {/* FOOTER */}
-      <footer className="border-t border-border/50 py-10 bg-muted/20">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground">
-                <GraduationCap className="h-5 w-5" />
+      <footer className="relative border-t border-border/50 bg-muted/30 overflow-hidden">
+        {/* Subtle background pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, currentColor 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+          }}
+        />
+
+        <div className="relative container mx-auto px-4">
+          {/* Main footer content */}
+          <div className="py-12 md:py-16 grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-8">
+            {/* Brand column */}
+            <div className="md:col-span-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-lg shadow-primary/20">
+                  <GraduationCap className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-bold text-lg tracking-tight">NNPTUD LMS</p>
+                </div>
               </div>
-              <div>
-                <p className="font-semibold">NNPTUD LMS</p>
-                <p className="text-xs text-muted-foreground">
-                  Hệ thống quản lý học tập
-                </p>
+              <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
+                Hệ thống quản lý học tập trực tuyến hiện đại, hỗ trợ giảng viên
+                và sinh viên trong quá trình dạy và học.
+              </p>
+              <div className="flex items-center gap-2 pt-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  Hệ thống hoạt động
+                </span>
               </div>
             </div>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <span>React + TypeScript</span>
-              <span className="hidden sm:inline">&bull;</span>
-              <span className="hidden sm:inline">Node.js + Prisma</span>
-              <span className="hidden sm:inline">&bull;</span>
-              <span className="hidden sm:inline">Socket.io</span>
+
+            {/* Links columns */}
+            <div className="md:col-span-2 space-y-4">
+              <h4 className="text-sm font-semibold tracking-wide uppercase text-foreground/80">
+                Tính năng
+              </h4>
+              <ul className="space-y-2.5 text-sm text-muted-foreground">
+                <li>
+                  <a href="#features" className="hover:text-primary transition-colors">
+                    Quản lý lớp học
+                  </a>
+                </li>
+                <li>
+                  <a href="#features" className="hover:text-primary transition-colors">
+                    Bài tập & Chấm điểm
+                  </a>
+                </li>
+                <li>
+                  <a href="#features" className="hover:text-primary transition-colors">
+                    Trò chuyện nhóm
+                  </a>
+                </li>
+                <li>
+                  <a href="#features" className="hover:text-primary transition-colors">
+                    Thống kê & Báo cáo
+                  </a>
+                </li>
+              </ul>
             </div>
-            <p className="text-sm text-muted-foreground">
-              &copy; 2026 NNPTUD. All rights reserved.
+
+            <div className="md:col-span-2 space-y-4">
+              <h4 className="text-sm font-semibold tracking-wide uppercase text-foreground/80">
+                Truy cập
+              </h4>
+              <ul className="space-y-2.5 text-sm text-muted-foreground">
+                <li>
+                  <Link to="/login" className="hover:text-primary transition-colors">
+                    Đăng nhập
+                  </Link>
+                </li>
+                <li>
+                  <a href="#features" className="hover:text-primary transition-colors">
+                    Giới thiệu
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div className="md:col-span-4 space-y-4">
+              <h4 className="text-sm font-semibold tracking-wide uppercase text-foreground/80">
+                Công nghệ
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "React",
+                  "TypeScript",
+                  "Node.js",
+                  "Express",
+                  "Prisma",
+                  "PostgreSQL",
+                  "Socket.io",
+                  "TailwindCSS",
+                ].map((tech) => (
+                  <span
+                    key={tech}
+                    className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground border border-border/50"
+                  >
+                    {tech}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground/70 pt-1">
+                Đồ án môn học Ngôn Ngữ Phát Triển Ứng Dụng
+              </p>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="border-t border-border/50 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-muted-foreground">
+              &copy; {new Date().getFullYear()} NNPTUD LMS. All rights reserved.
             </p>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60">
+              <span>Made with</span>
+              <span className="text-red-500 animate-pulse">&hearts;</span>
+              <span>by NNPTUD Team</span>
+            </div>
           </div>
         </div>
       </footer>

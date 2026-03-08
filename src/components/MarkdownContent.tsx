@@ -239,11 +239,26 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
     return () => container.removeEventListener('click', handleCopyClick);
   }, [content]);
 
+  // Detect if content is already HTML (from rich text editor)
+  const isHtmlContent = (text: string): boolean => {
+    const trimmed = text.trim();
+    return trimmed.startsWith("<") && (
+      trimmed.startsWith("<p") ||
+      trimmed.startsWith("<h") ||
+      trimmed.startsWith("<ul") ||
+      trimmed.startsWith("<ol") ||
+      trimmed.startsWith("<div") ||
+      trimmed.startsWith("<blockquote")
+    );
+  };
+
+  const renderedContent = isHtmlContent(content) ? content : parseMarkdown(content);
+
   return (
     <div
       ref={containerRef}
       className={cn("markdown-content prose-custom text-sm leading-relaxed", className)}
-      dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
+      dangerouslySetInnerHTML={{ __html: renderedContent }}
     />
   );
 }

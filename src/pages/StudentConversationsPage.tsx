@@ -32,6 +32,9 @@ export default function StudentConversationsPage() {
     handleSend,
     handleInputChange,
     refetchConversations,
+    recallMessageMutation,
+    deleteMessageMutation,
+    leaveConversationMutation,
   } = useConversations();
 
   const isMobile = useIsMobile();
@@ -99,13 +102,18 @@ export default function StudentConversationsPage() {
                       showMembers={showMembers}
                       onToggleMembers={() => setShowMembers(!showMembers)}
                       onBack={isMobile ? handleBack : undefined}
+                      onLeave={() => leaveConversationMutation.mutate(selectedConversation.id)}
                     />
                     {loadingMessages ? (
                       <CardContent className="flex-1 flex items-center justify-center">
                         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                       </CardContent>
                     ) : (
-                      <MessageList messages={messages} />
+                      <MessageList
+                        messages={messages}
+                        onRecallMessage={(id) => recallMessageMutation.mutate(id)}
+                        onDeleteMessage={(id) => deleteMessageMutation.mutate(id)}
+                      />
                     )}
                     {/* Typing indicator */}
                     {typingUsers.length > 0 && (

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,22 +21,18 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { FileText, Loader2, CalendarIcon, Upload, X, File, Eye, Edit3 } from "lucide-react";
+import { FileText, Loader2, CalendarIcon, Upload, X, File } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { MarkdownContent } from "@/components/MarkdownContent";
-import { MarkdownToolbar } from "@/components/MarkdownToolbar";
+import { RichTextEditor } from "@/components/RichTextEditor";
 
 const formSchema = z.object({
   title: z.string().min(3, "Tiêu đề phải có ít nhất 3 ký tự").max(200),
@@ -75,9 +71,7 @@ export function CreateAssignmentModal({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string>(classId ?? "");
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
-  const [descriptionTab, setDescriptionTab] = useState<"edit" | "preview">("edit");
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const effectiveClassId = classId ?? selectedClassId;
   const needClassSelect = !classId && classesList.length > 0;
@@ -108,55 +102,7 @@ export function CreateAssignmentModal({
     },
   });
 
-  const descriptionValue = form.watch("description") || "";
 
-  // Keyboard shortcuts handler for markdown formatting
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-    
-    if (isCtrlOrCmd && e.key === "b") {
-      e.preventDefault();
-      insertMarkdownFormat("**", "**");
-    } else if (isCtrlOrCmd && e.key === "i") {
-      e.preventDefault();
-      insertMarkdownFormat("*", "*");
-    } else if (isCtrlOrCmd && e.key === "k") {
-      e.preventDefault();
-      insertMarkdownFormat("[", "](url)");
-    }
-  };
-
-  const insertMarkdownFormat = (prefix: string, suffix: string) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const value = form.getValues("description") || "";
-    const selectedText = value.substring(start, end);
-    
-    const beforeText = value.substring(0, start);
-    const afterText = value.substring(end);
-    
-    const newText = selectedText
-      ? `${beforeText}${prefix}${selectedText}${suffix}${afterText}`
-      : `${beforeText}${prefix}text${suffix}${afterText}`;
-    
-    form.setValue("description", newText);
-    
-    // Set cursor position
-    setTimeout(() => {
-      textarea.focus();
-      if (selectedText) {
-        textarea.setSelectionRange(end + prefix.length + suffix.length, end + prefix.length + suffix.length);
-      } else {
-        textarea.setSelectionRange(start + prefix.length, start + prefix.length + 4); // Select "text"
-      }
-    }, 0);
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -221,7 +167,6 @@ export function CreateAssignmentModal({
       onSuccess?.(values);
       form.reset();
       setAttachedFile(null);
-      setDescriptionTab("edit");
       onOpenChange(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Tạo bài tập thất bại");
@@ -285,80 +230,20 @@ export function CreateAssignmentModal({
               )}
             />
 
-            {/* Description with Markdown Preview */}
+            {/* Description with Rich Text Editor */}
             <FormField
               control={form.control}
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <div className="flex items-center justify-between">
-                    <FormLabel>Mô tả / Yêu cầu</FormLabel>
-                    <span className="text-xs text-muted-foreground">
-                      Hỗ trợ Markdown
-                    </span>
-                  </div>
-                  <Tabs value={descriptionTab} onValueChange={(v) => setDescriptionTab(v as "edit" | "preview")}>
-                    <TabsList className="grid w-full grid-cols-2 h-9">
-                      <TabsTrigger value="edit" className="text-xs gap-1.5">
-                        <Edit3 className="w-3.5 h-3.5" />
-                        Soạn thảo
-                      </TabsTrigger>
-                      <TabsTrigger value="preview" className="text-xs gap-1.5">
-                        <Eye className="w-3.5 h-3.5" />
-                        Xem trước
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="edit" className="mt-2 space-y-2">
-                      <MarkdownToolbar
-                        textareaRef={textareaRef}
-                        value={field.value || ""}
-                        onChange={field.onChange}
-                      />
-                      <FormControl>
-                        <Textarea 
-                          ref={(el) => {
-                            textareaRef.current = el;
-                            // Also pass to react-hook-form ref
-                            if (typeof field.ref === 'function') {
-                              field.ref(el);
-                            }
-                          }}
-                          onKeyDown={handleKeyDown}
-                          placeholder={`Mô tả chi tiết yêu cầu bài tập...
-
-Ví dụ:
-## Mục tiêu
-Nắm vững cách sử dụng React Hooks
-
-## Yêu cầu
-1. Tạo ứng dụng Todo List
-2. Sử dụng useState và useEffect
-
-\`\`\`javascript
-// Ví dụ code
-const [count, setCount] = useState(0);
-\`\`\``}
-                          className="resize-none font-mono text-sm"
-                          rows={8}
-                          name={field.name}
-                          value={field.value || ""}
-                          onChange={field.onChange}
-                          onBlur={field.onBlur}
-                        />
-                      </FormControl>
-                    </TabsContent>
-                    <TabsContent value="preview" className="mt-2">
-                      <ScrollArea className="h-[200px] rounded-md border p-4 bg-muted/30">
-                        {descriptionValue ? (
-                          <MarkdownContent content={descriptionValue} />
-                        ) : (
-                          <p className="text-sm text-muted-foreground italic">
-                            Chưa có nội dung để xem trước...
-                          </p>
-                        )}
-                      </ScrollArea>
-                    </TabsContent>
-                  </Tabs>
+                  <FormLabel>Mô tả / Yêu cầu</FormLabel>
+                  <FormControl>
+                    <RichTextEditor
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      placeholder="Mô tả chi tiết yêu cầu bài tập..."
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

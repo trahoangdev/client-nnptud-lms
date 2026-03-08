@@ -35,6 +35,8 @@ export default function TeacherConversationsPage() {
     handleSend,
     handleInputChange,
     refetchConversations,
+    recallMessageMutation,
+    deleteMessageMutation,
   } = useConversations();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -114,7 +116,11 @@ export default function TeacherConversationsPage() {
                         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                       </CardContent>
                     ) : (
-                      <MessageList messages={messages} />
+                      <MessageList
+                        messages={messages}
+                        onRecallMessage={(id) => recallMessageMutation.mutate(id)}
+                        onDeleteMessage={(id) => deleteMessageMutation.mutate(id)}
+                      />
                     )}
                     {/* Typing indicator */}
                     {typingUsers.length > 0 && (

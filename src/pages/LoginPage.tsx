@@ -18,8 +18,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<LoginRole | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string; role?: string }>({});
   const { login, logout, user, token } = useAuth();
   const navigate = useNavigate();
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   // Đã đăng nhập -> redirect theo role
   if (token && user) {
@@ -29,16 +32,33 @@ export default function LoginPage() {
     if (role === "ADMIN") return <Navigate to="/admin" replace />;
   }
 
+  const validateForm = () => {
+    const newErrors: { email?: string; password?: string; role?: string } = {};
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      newErrors.email = "Vui lòng nhập email";
+    } else if (!emailRegex.test(trimmedEmail)) {
+      newErrors.email = "Email không đúng định dạng";
+    }
+
+    if (!password) {
+      newErrors.password = "Vui lòng nhập mật khẩu";
+    } else if (password.length < 6) {
+      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự";
+    }
+
+    if (!selectedRole) {
+      newErrors.role = "Vui lòng chọn tư cách đăng nhập";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
-      toast.error("Vui lòng nhập email và mật khẩu");
-      return;
-    }
-    if (!selectedRole) {
-      toast.error("Vui lòng chọn đăng nhập với tư cách Sinh viên hoặc Giảng viên");
-      return;
-    }
+    if (!validateForm()) return;
     setIsSubmitting(true);
     try {
       const { role } = await login(email.trim(), password);
@@ -143,12 +163,13 @@ export default function LoginPage() {
                       id="email"
                       type="email"
                       placeholder="student@nnptud.edu.vn"
-                      className="pl-10"
+                      className={cn("pl-10", errors.email && "border-destructive focus-visible:ring-destructive")}
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => { setEmail(e.target.value); if (errors.email) setErrors(prev => ({ ...prev, email: undefined })); }}
                       disabled={isSubmitting}
                     />
                   </div>
+                  {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Mật khẩu</Label>
@@ -158,9 +179,9 @@ export default function LoginPage() {
                       id="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
-                      className="pl-10 pr-10"
+                      className={cn("pl-10 pr-10", errors.password && "border-destructive focus-visible:ring-destructive")}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => { setPassword(e.target.value); if (errors.password) setErrors(prev => ({ ...prev, password: undefined })); }}
                       disabled={isSubmitting}
                     />
                     <button
@@ -171,10 +192,12 @@ export default function LoginPage() {
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+                  {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
                 </div>
 
                 <div className="space-y-2">
                   <Label>Đăng nhập với tư cách</Label>
+                  {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       type="button"
@@ -184,7 +207,7 @@ export default function LoginPage() {
                         "h-12 gap-2",
                         selectedRole === "STUDENT" && "ring-2 ring-primary ring-offset-2"
                       )}
-                      onClick={() => setSelectedRole("STUDENT")}
+                      onClick={() => { setSelectedRole("STUDENT"); if (errors.role) setErrors(prev => ({ ...prev, role: undefined })); }}
                       disabled={isSubmitting}
                     >
                       <User className="w-4 h-4" />
@@ -198,7 +221,7 @@ export default function LoginPage() {
                         "h-12 gap-2",
                         selectedRole === "TEACHER" && "ring-2 ring-primary ring-offset-2"
                       )}
-                      onClick={() => setSelectedRole("TEACHER")}
+                      onClick={() => { setSelectedRole("TEACHER"); if (errors.role) setErrors(prev => ({ ...prev, role: undefined })); }}
                       disabled={isSubmitting}
                     >
                       <BookOpen className="w-4 h-4" />

@@ -71,6 +71,23 @@ export function useConversations() {
     },
   });
 
+  // Recall message mutation (soft delete — shows "Tin nhắn đã được thu hồi")
+  const recallMessageMutation = useMutation({
+    mutationFn: (messageId: string) =>
+      api.patch(
+        `/conversations/${selectedConversation!.id}/messages/${messageId}/recall`,
+        {}
+      ),
+  });
+
+  // Delete message mutation (hard delete — removes message entirely)
+  const deleteMessageMutation = useMutation({
+    mutationFn: (messageId: string) =>
+      api.delete(
+        `/conversations/${selectedConversation!.id}/messages/${messageId}`
+      ),
+  });
+
   // Select conversation: join room, leave previous
   const handleSelectConversation = useCallback(
     (conv: Conversation) => {
@@ -154,6 +171,54 @@ export function useConversations() {
       refetchConversations();
     };
 
+    const handleMessageRecalled = (data: {
+      messageId: string;
+      conversationId: string;
+    }) => {
+      if (
+        selectedConversation &&
+        String(data.conversationId) === String(selectedConversation.id)
+      ) {
+        queryClient.setQueryData<MessagesResponse>(
+          ["messages", selectedConversation.id],
+          (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              messages: old.messages.map((m) =>
+                m.id === data.messageId
+                  ? { ...m, isRecalled: true, content: "Tin nhắn đã được thu hồi" }
+                  : m
+              ),
+            };
+          }
+        );
+      }
+      refetchConversations();
+    };
+
+    const handleMessageDeleted = (data: {
+      messageId: string;
+      conversationId: string;
+    }) => {
+      if (
+        selectedConversation &&
+        String(data.conversationId) === String(selectedConversation.id)
+      ) {
+        queryClient.setQueryData<MessagesResponse>(
+          ["messages", selectedConversation.id],
+          (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              messages: old.messages.filter((m) => m.id !== data.messageId),
+            };
+          }
+        );
+      }
+      refetchConversations();
+    };
+
     const handleTyping = (data: {
       conversationId: string;
       userId: string;
@@ -186,11 +251,15 @@ export function useConversations() {
     };
 
     socket.on("message:new", handleNewMessage);
+    socket.on("message:recalled", handleMessageRecalled);
+    socket.on("message:deleted", handleMessageDeleted);
     socket.on("user:typing", handleTyping);
     socket.on("user:stop_typing", handleStopTyping);
 
     return () => {
       socket.off("message:new", handleNewMessage);
+      socket.off("message:recalled", handleMessageRecalled);
+      socket.off("message:deleted", handleMessageDeleted);
       socket.off("user:typing", handleTyping);
       socket.off("user:stop_typing", handleStopTyping);
     };
@@ -225,5 +294,7 @@ export function useConversations() {
     handleSend,
     handleInputChange,
     refetchConversations,
+    recallMessageMutation,
+    deleteMessageMutation,
   };
 }

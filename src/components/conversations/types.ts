@@ -35,4 +35,5 @@ export interface Message {
   isOwn: boolean;
   status: "read" | "delivered" | "sent";
   conversationId?: string;
+  isRecalled?: boolean;
 }

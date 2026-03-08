@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { Bell, Check, CheckCheck, MessageSquare, BookOpen, Award, Info, ClipboardList } from "lucide-react";
+import { Bell, Check, CheckCheck, MessageSquare, BookOpen, Award, Info, ClipboardList, MessagesSquare, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -25,6 +25,8 @@ const typeIcons: Record<string, typeof Bell> = {
   grade: Award,
   comment: MessageSquare,
   assignment: ClipboardList,
+  conversation: MessagesSquare,
+  message: Send,
   system: Info,
 };
 
@@ -33,6 +35,8 @@ const typeColors: Record<string, string> = {
   grade: "text-green-500",
   comment: "text-orange-500",
   assignment: "text-purple-500",
+  conversation: "text-indigo-500",
+  message: "text-cyan-500",
   system: "text-gray-500",
 };
 

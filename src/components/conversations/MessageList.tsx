@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Check, CheckCheck, Ban, Trash2, Undo2 } from "lucide-react";
+import { Check, CheckCheck, Ban, Trash2, Undo2, LogIn, LogOut } from "lucide-react";
 import { CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -54,6 +54,24 @@ export function MessageList({ messages, onRecallMessage, onDeleteMessage }: Mess
                 <Separator className="flex-1" />
               </div>
               {group.msgs.map((msg) => {
+                // System messages (join/leave)
+                if (msg.type === "system") {
+                  const isJoin = msg.content.includes("tham gia");
+                  return (
+                    <div key={msg.id} className="flex justify-center my-2">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/60 text-xs text-muted-foreground">
+                        {isJoin ? (
+                          <LogIn className="w-3 h-3" />
+                        ) : (
+                          <LogOut className="w-3 h-3" />
+                        )}
+                        <span>{msg.content}</span>
+                        <span className="text-muted-foreground/60">· {msg.time}</span>
+                      </div>
+                    </div>
+                  );
+                }
+
                 const messageContent = (
                   <div
                     className={cn("flex gap-3", msg.isOwn ? "flex-row-reverse" : "")}
@@ -77,7 +95,11 @@ export function MessageList({ messages, onRecallMessage, onDeleteMessage }: Mess
                         msg.isOwn ? "items-end" : "items-start"
                       )}
                     >
-                      {!msg.isOwn && (
+                      {msg.isOwn ? (
+                        <div className="flex items-center justify-end gap-2 mb-1">
+                          <span className="text-sm font-medium text-primary">Bạn</span>
+                        </div>
+                      ) : (
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-medium">{msg.senderName}</span>
                           {msg.senderRole === "teacher" && (

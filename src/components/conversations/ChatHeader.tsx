@@ -10,6 +10,7 @@ import {
   Copy,
   Pencil,
   Trash2,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardHeader } from "@/components/ui/card";
@@ -30,6 +31,7 @@ interface ChatHeaderProps {
   onBack?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onLeave?: () => void;
 }
 
 export function ChatHeader({
@@ -39,6 +41,7 @@ export function ChatHeader({
   onBack,
   onEdit,
   onDelete,
+  onLeave,
 }: ChatHeaderProps) {
   return (
     <CardHeader className="py-2.5 px-3 md:px-4 border-b">
@@ -136,6 +139,18 @@ export function ChatHeader({
                       Xoá hội thoại
                     </DropdownMenuItem>
                   )}
+                </>
+              )}
+              {onLeave && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={onLeave}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Rời hội thoại
+                  </DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>

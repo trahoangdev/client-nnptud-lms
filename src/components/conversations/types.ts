@@ -28,8 +28,9 @@ export interface Message {
   id: string;
   senderId: string;
   senderName: string;
-  senderRole: "teacher" | "student" | "admin";
+  senderRole: "teacher" | "student" | "admin" | "system";
   content: string;
+  type?: "user" | "system";
   time: string;
   date: string;
   isOwn: boolean;

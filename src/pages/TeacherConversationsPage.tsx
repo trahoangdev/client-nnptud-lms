@@ -37,6 +37,7 @@ export default function TeacherConversationsPage() {
     refetchConversations,
     recallMessageMutation,
     deleteMessageMutation,
+    leaveConversationMutation,
   } = useConversations();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -110,6 +111,7 @@ export default function TeacherConversationsPage() {
                       onBack={isMobile ? handleBack : undefined}
                       onEdit={() => setShowEditModal(true)}
                       onDelete={() => setShowDeleteDialog(true)}
+                      onLeave={() => leaveConversationMutation.mutate(selectedConversation.id)}
                     />
                     {loadingMessages ? (
                       <CardContent className="flex-1 flex items-center justify-center">

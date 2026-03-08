@@ -88,6 +88,16 @@ export function useConversations() {
       ),
   });
 
+  // Leave conversation mutation
+  const leaveConversationMutation = useMutation({
+    mutationFn: (conversationId: string) =>
+      api.post(`/conversations/${conversationId}/leave`, {}),
+    onSuccess: () => {
+      setSelectedConversation(null);
+      refetchConversations();
+    },
+  });
+
   // Select conversation: join room, leave previous
   const handleSelectConversation = useCallback(
     (conv: Conversation) => {
@@ -296,5 +306,6 @@ export function useConversations() {
     refetchConversations,
     recallMessageMutation,
     deleteMessageMutation,
+    leaveConversationMutation,
   };
 }

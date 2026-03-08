@@ -72,7 +72,7 @@ export function ConversationList({
                       : "hover:bg-muted/50"
                   )}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0 overflow-hidden">
                     <div className="relative shrink-0">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-primary-foreground text-sm">
                         {conv.type === "group" ? (
@@ -87,12 +87,12 @@ export function ConversationList({
                         </span>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center justify-between gap-2 min-w-0">
-                        <p className="text-sm font-medium truncate min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden" style={{ maxWidth: 'calc(100% - 50px)' }}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium w-0 flex-1 truncate">
                           {conv.name}
-                        </p>
-                        <span className="text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
+                        </span>
+                        <span className="text-[10px] text-muted-foreground shrink-0">
                           {conv.lastMessage.time}
                         </span>
                       </div>

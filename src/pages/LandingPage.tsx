@@ -319,10 +319,10 @@ export default function LandingPage() {
               className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl leading-[1.6]"
             >
               <span className="block">Nền tảng</span>
-              <span className="block bg-gradient-to-r from-primary via-sky-500 to-cyan-500 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-primary via-sky-500 to-cyan-500 bg-clip-text text-transparent pb-2">
                 dạy &amp; học
               </span>
-              <span className="block">hiện đại</span>
+              <span className="block mt-2">hiện đại</span>
             </motion.h1>
 
             {/* Subtitle */}

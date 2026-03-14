@@ -62,7 +62,7 @@ export function CreateConversationModal({
         type: "class",
       });
       toast.success("Tạo hội thoại thành công!");
-      setCreatedRoomCode((result as any).roomCode);
+      setCreatedRoomCode(result.roomCode);
       onCreated();
     } catch (err: unknown) {
       const message =

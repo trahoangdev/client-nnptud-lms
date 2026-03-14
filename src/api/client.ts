@@ -59,7 +59,7 @@ async function request<T>(
     clearToken();
     clearStoredUser();
     if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-      window.location.href = "/login";
+      window.dispatchEvent(new Event("auth-expired"));
     }
   }
 
@@ -96,7 +96,7 @@ export async function apiUpload(path: string, formData: FormData): Promise<{ fil
     clearToken();
     clearStoredUser();
     if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-      window.location.href = "/login";
+      window.dispatchEvent(new Event("auth-expired"));
     }
   }
   if (!res.ok) {

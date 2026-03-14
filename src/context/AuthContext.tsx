@@ -64,6 +64,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshUser();
   }, [refreshUser]);
 
+  const logout = useCallback(() => {
+    clearToken();
+    clearStoredUser();
+    setState({ user: null, token: null, isLoading: false });
+  }, []);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      logout();
+    };
+    window.addEventListener("auth-expired", handleAuthExpired);
+    return () => window.removeEventListener("auth-expired", handleAuthExpired);
+  }, [logout]);
+
   const login = useCallback(
     async (email: string, password: string) => {
       const res = await api.post<{ token: string; user: { id: number; name: string; email: string; role: string } }>(
@@ -72,17 +86,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
       saveToken(res.token);
       setStoredUser(res.user);
-      setState({ user: res.user, token: res.token, isLoading: false });
+      
+      const userToSet = {
+        ...res.user,
+        role: res.user.role as import("@/api").UserRole
+      };
+      
+      setState({ user: userToSet, token: res.token, isLoading: false });
       return { role: res.user.role };
     },
     []
   );
-
-  const logout = useCallback(() => {
-    clearToken();
-    clearStoredUser();
-    setState({ user: null, token: null, isLoading: false });
-  }, []);
 
   const value: AuthContextValue = {
     ...state,

@@ -57,6 +57,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { authService } from "@/api/services/auth";
 import { Loader2 } from "lucide-react";
+import type { AdminSettings } from "@/api";
 
 export default function AdminSettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -78,7 +79,7 @@ export default function AdminSettingsPage() {
         email: user.email ?? p.email,
       }));
     }
-  }, [user?.name, user?.email]);
+  }, [user]);
 
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -139,15 +140,9 @@ export default function AdminSettingsPage() {
   };
 
   // Fetch settings from API
-  const { data: settingsData, isLoading: settingsLoading } = useQuery({
+  const { data: settingsData, isLoading: settingsLoading } = useQuery<AdminSettings>({
     queryKey: ["admin-settings"],
-    queryFn: () => api.get<{
-      system: any;
-      security: any;
-      email: any;
-      backup: any;
-      notifications: any;
-    }>("/admin/settings"),
+    queryFn: () => api.get("/admin/settings"),
   });
 
   // System settings
@@ -206,56 +201,60 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     if (settingsData) {
       if (settingsData.system) {
-        setSystemSettings({
-          siteName: settingsData.system.siteName || systemSettings.siteName,
-          siteUrl: settingsData.system.siteUrl || systemSettings.siteUrl,
-          adminEmail: settingsData.system.adminEmail || systemSettings.adminEmail,
-          maxFileSize: String(settingsData.system.maxFileSize || systemSettings.maxFileSize),
-          maxStoragePerClass: String(settingsData.system.maxStoragePerClass || systemSettings.maxStoragePerClass),
-          sessionTimeout: String(settingsData.system.sessionTimeout || systemSettings.sessionTimeout),
-          maintenanceMode: settingsData.system.maintenanceMode ?? systemSettings.maintenanceMode,
-        });
+        setSystemSettings((prev) => ({
+          ...prev,
+          siteName: settingsData.system.siteName || prev.siteName,
+          siteUrl: settingsData.system.siteUrl || prev.siteUrl,
+          adminEmail: settingsData.system.adminEmail || prev.adminEmail,
+          maxFileSize: String(settingsData.system.maxFileSize || prev.maxFileSize),
+          maxStoragePerClass: String(settingsData.system.maxStoragePerClass || prev.maxStoragePerClass),
+          sessionTimeout: String(settingsData.system.sessionTimeout || prev.sessionTimeout),
+          maintenanceMode: settingsData.system.maintenanceMode ?? prev.maintenanceMode,
+        }));
       }
       if (settingsData.security) {
-        setSecuritySettings({
-          twoFactorRequired: settingsData.security.twoFactorRequired ?? securitySettings.twoFactorRequired,
-          passwordMinLength: String(settingsData.security.passwordMinLength || securitySettings.passwordMinLength),
-          passwordRequireUppercase: settingsData.security.passwordRequireUppercase ?? securitySettings.passwordRequireUppercase,
-          passwordRequireNumber: settingsData.security.passwordRequireNumber ?? securitySettings.passwordRequireNumber,
-          passwordRequireSpecial: settingsData.security.passwordRequireSpecial ?? securitySettings.passwordRequireSpecial,
-          maxLoginAttempts: String(settingsData.security.maxLoginAttempts || securitySettings.maxLoginAttempts),
-          lockoutDuration: String(settingsData.security.lockoutDuration || securitySettings.lockoutDuration),
-          sessionConcurrent: settingsData.security.sessionConcurrent ?? securitySettings.sessionConcurrent,
-        });
+        setSecuritySettings((prev) => ({
+          ...prev,
+          twoFactorRequired: settingsData.security.twoFactorRequired ?? prev.twoFactorRequired,
+          passwordMinLength: String(settingsData.security.passwordMinLength || prev.passwordMinLength),
+          passwordRequireUppercase: settingsData.security.passwordRequireUppercase ?? prev.passwordRequireUppercase,
+          passwordRequireNumber: settingsData.security.passwordRequireNumber ?? prev.passwordRequireNumber,
+          passwordRequireSpecial: settingsData.security.passwordRequireSpecial ?? prev.passwordRequireSpecial,
+          maxLoginAttempts: String(settingsData.security.maxLoginAttempts || prev.maxLoginAttempts),
+          lockoutDuration: String(settingsData.security.lockoutDuration || prev.lockoutDuration),
+          sessionConcurrent: settingsData.security.sessionConcurrent ?? prev.sessionConcurrent,
+        }));
       }
       if (settingsData.email) {
-        setEmailSettings({
-          smtpHost: settingsData.email.smtpHost || emailSettings.smtpHost,
-          smtpPort: String(settingsData.email.smtpPort || emailSettings.smtpPort),
-          smtpUser: settingsData.email.smtpUser || emailSettings.smtpUser,
-          smtpPassword: emailSettings.smtpPassword, // Don't load password
-          smtpSecure: settingsData.email.smtpSecure || emailSettings.smtpSecure,
-          fromName: settingsData.email.fromName || emailSettings.fromName,
-          fromEmail: settingsData.email.fromEmail || emailSettings.fromEmail,
-        });
+        setEmailSettings((prev) => ({
+          ...prev,
+          smtpHost: settingsData.email.smtpHost || prev.smtpHost,
+          smtpPort: String(settingsData.email.smtpPort || prev.smtpPort),
+          smtpUser: settingsData.email.smtpUser || prev.smtpUser,
+          smtpSecure: settingsData.email.smtpSecure || prev.smtpSecure,
+          fromName: settingsData.email.fromName || prev.fromName,
+          fromEmail: settingsData.email.fromEmail || prev.fromEmail,
+        }));
       }
       if (settingsData.backup) {
-        setBackupSettings({
-          autoBackup: settingsData.backup.autoBackup ?? backupSettings.autoBackup,
-          backupFrequency: settingsData.backup.backupFrequency || backupSettings.backupFrequency,
-          backupRetention: String(settingsData.backup.backupRetention || backupSettings.backupRetention),
-          backupLocation: settingsData.backup.backupLocation || backupSettings.backupLocation,
-        });
+        setBackupSettings((prev) => ({
+          ...prev,
+          autoBackup: settingsData.backup.autoBackup ?? prev.autoBackup,
+          backupFrequency: settingsData.backup.backupFrequency || prev.backupFrequency,
+          backupRetention: String(settingsData.backup.backupRetention || prev.backupRetention),
+          backupLocation: settingsData.backup.backupLocation || prev.backupLocation,
+        }));
       }
       if (settingsData.notifications) {
-        setNotificationSettings({
-          notifyNewUser: settingsData.notifications.notifyNewUser ?? notificationSettings.notifyNewUser,
-          notifyNewClass: settingsData.notifications.notifyNewClass ?? notificationSettings.notifyNewClass,
-          notifyStorageWarning: settingsData.notifications.notifyStorageWarning ?? notificationSettings.notifyStorageWarning,
-          notifySecurityAlert: settingsData.notifications.notifySecurityAlert ?? notificationSettings.notifySecurityAlert,
-          dailyReport: settingsData.notifications.dailyReport ?? notificationSettings.dailyReport,
-          weeklyReport: settingsData.notifications.weeklyReport ?? notificationSettings.weeklyReport,
-        });
+        setNotificationSettings((prev) => ({
+          ...prev,
+          notifyNewUser: settingsData.notifications.notifyNewUser ?? prev.notifyNewUser,
+          notifyNewClass: settingsData.notifications.notifyNewClass ?? prev.notifyNewClass,
+          notifyStorageWarning: settingsData.notifications.notifyStorageWarning ?? prev.notifyStorageWarning,
+          notifySecurityAlert: settingsData.notifications.notifySecurityAlert ?? prev.notifySecurityAlert,
+          dailyReport: settingsData.notifications.dailyReport ?? prev.dailyReport,
+          weeklyReport: settingsData.notifications.weeklyReport ?? prev.weeklyReport,
+        }));
       }
     }
   }, [settingsData]);
@@ -277,7 +276,7 @@ export default function AdminSettingsPage() {
   ];
 
   const saveSettingsMutation = useMutation({
-    mutationFn: (data: { system?: any; security?: any; email?: any; backup?: any; notifications?: any }) =>
+    mutationFn: (data: Partial<AdminSettings>) =>
       api.patch("/admin/settings", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
@@ -328,7 +327,7 @@ export default function AdminSettingsPage() {
       await saveSettingsMutation.mutateAsync({
         email: {
           ...emailSettings,
-          smtpPort: Number(emailSettings.smtpPort),
+          smtpPort: String(emailSettings.smtpPort),
         },
       });
       toast.success("Đã lưu cấu hình email!");

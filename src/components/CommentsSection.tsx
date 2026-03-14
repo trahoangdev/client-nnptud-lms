@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { MessageSquare, Send, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,12 +45,11 @@ export function CommentsSection({
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   // Always use assignmentId as the primary key for comments so teacher & student see the same thread
-  const queryKey =
-    assignmentId != null
-      ? ["comments", "assignment", assignmentId]
-      : submissionId != null
-        ? ["comments", "submission", submissionId]
-        : [];
+  const queryKey = useMemo(() => {
+    if (assignmentId != null) return ["comments", "assignment", assignmentId];
+    if (submissionId != null) return ["comments", "submission", submissionId];
+    return [];
+  }, [assignmentId, submissionId]);
   const params = new URLSearchParams();
   if (assignmentId != null) params.set("assignmentId", String(assignmentId));
   else if (submissionId != null) params.set("submissionId", String(submissionId));

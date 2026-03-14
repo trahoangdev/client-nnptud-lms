@@ -57,6 +57,12 @@ export default function TeacherDashboard() {
     queryFn: () => api.get<ClassItem[]>("/classes"),
   });
 
+  // Fetch dashboard stats (pending grading, recent submissions)
+  const { data: dashStats, refetch: refetchStats } = useQuery({
+    queryKey: ["teacher-dashboard-stats"],
+    queryFn: () => api.get<TeacherDashboardStats>("/teacher/dashboard-stats"),
+  });
+
   // Realtime: refetch when a student submits
   const handleSubmissionNew = useCallback(
     (data: { student_id?: number; assignment_id?: number }) => {
@@ -64,15 +70,9 @@ export default function TeacherDashboard() {
       refetchStats();
       toast.info("Có bài nộp mới!", { description: `Bài tập #${data.assignment_id}` });
     },
-    [refetch]
+    [refetch, refetchStats]
   );
   useSocketEvent("submission:new", handleSubmissionNew);
-
-  // Fetch dashboard stats (pending grading, recent submissions)
-  const { data: dashStats, refetch: refetchStats } = useQuery({
-    queryKey: ["teacher-dashboard-stats"],
-    queryFn: () => api.get<TeacherDashboardStats>("/teacher/dashboard-stats"),
-  });
 
   const stats = {
     totalClasses: classes.length,

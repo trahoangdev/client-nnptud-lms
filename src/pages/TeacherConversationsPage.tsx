@@ -16,6 +16,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { CreateConversationModal } from "@/components/modals/CreateConversationModal";
 import { EditConversationModal } from "@/components/modals/EditConversationModal";
 import { DeleteConversationDialog } from "@/components/modals/DeleteConversationDialog";
+import type { Conversation } from "@/components/conversations/types";
 
 export default function TeacherConversationsPage() {
   const {
@@ -46,7 +47,7 @@ export default function TeacherConversationsPage() {
   const isMobile = useIsMobile();
   const [mobileShowChat, setMobileShowChat] = useState(false);
 
-  const handleSelectConv = (conv: any) => {
+  const handleSelectConv = (conv: Conversation) => {
     handleSelectConversation(conv);
     if (isMobile) setMobileShowChat(true);
   };

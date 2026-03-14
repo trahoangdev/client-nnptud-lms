@@ -116,7 +116,7 @@ export function GradeSubmissionModal({
         feedback: submission.feedback ?? "",
       });
     }
-  }, [submission?.id, submission?.score, submission?.feedback, form]);
+  }, [submission, form]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {

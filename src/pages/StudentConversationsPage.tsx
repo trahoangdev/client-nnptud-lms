@@ -14,6 +14,7 @@ import {
 import { useConversations } from "@/hooks/useConversations";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { JoinConversationModal } from "@/components/modals/JoinConversationModal";
+import type { Conversation } from "@/components/conversations/types";
 
 export default function StudentConversationsPage() {
   const {
@@ -41,7 +42,7 @@ export default function StudentConversationsPage() {
   const [mobileShowChat, setMobileShowChat] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
-  const handleSelectConv = (conv: any) => {
+  const handleSelectConv = (conv: Conversation) => {
     handleSelectConversation(conv);
     if (isMobile) setMobileShowChat(true);
   };

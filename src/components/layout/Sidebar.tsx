@@ -133,13 +133,6 @@ export function Sidebar({ userRole, isCollapsed: controlledCollapsed, onToggleCo
             <span className="text-sm">Thu gọn</span>
           )}
         </button>
-
-        <button className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sidebar-muted hover:text-destructive hover:bg-destructive/10 transition-colors">
-          <LogOut className="w-5 h-5" />
-          {!isCollapsed && (
-            <span className="text-sm font-medium">Đăng xuất</span>
-          )}
-        </button>
       </div>
     </div>
   );

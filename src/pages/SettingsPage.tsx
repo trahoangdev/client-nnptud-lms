@@ -57,7 +57,7 @@ export default function SettingsPage({ userRole = "teacher" }: SettingsPageProps
         email: user.email ?? p.email,
       }));
     }
-  }, [user?.name, user?.email]);
+  }, [user]);
 
   // Notification settings — persist in localStorage
   const NOTIF_STORAGE_KEY = `lms_notif_settings_${userRole}`;

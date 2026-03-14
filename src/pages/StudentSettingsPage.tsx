@@ -64,7 +64,7 @@ export default function StudentSettingsPage() {
         studentId: user.id != null ? String(user.id) : p.studentId,
       }));
     }
-  }, [user?.id, user?.name, user?.email]);
+  }, [user]);
 
   // Notification settings - student specific — persist in localStorage
   const NOTIF_STORAGE_KEY = "lms_notif_settings_student";

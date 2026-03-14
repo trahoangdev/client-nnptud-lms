@@ -18,6 +18,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   avatar?: string | null;
+  createdAt?: string;
 }
 
 export interface UserProfile extends AuthUser {

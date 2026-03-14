@@ -8,32 +8,35 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { SocketProvider } from "@/context/SocketContext";
 import { NotificationProvider } from "@/context/NotificationContext";
+import { lazy, Suspense } from "react";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { HomeOrDashboard } from "@/components/HomeOrDashboard";
-import TeacherDashboard from "./pages/TeacherDashboard";
-import StudentDashboard from "./pages/StudentDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
-import UsersManagementPage from "./pages/UsersManagementPage";
-import ClassesManagementPage from "./pages/ClassesManagementPage";
-import AdminSettingsPage from "./pages/AdminSettingsPage";
-import AdminReportsPage from "./pages/AdminReportsPage";
-import AdminActivityLogPage from "./pages/AdminActivityLogPage";
-import ClassDetail from "./pages/ClassDetail";
-import ClassesPage from "./pages/ClassesPage";
-import AssignmentDetail from "./pages/AssignmentDetail";
-import SettingsPage from "./pages/SettingsPage";
-import LoginPage from "./pages/LoginPage";
-import NotFound from "./pages/NotFound";
-import StudentClassesPage from "./pages/StudentClassesPage";
-import StudentClassDetailPage from "./pages/StudentClassDetailPage";
-import StudentAssignmentsPage from "./pages/StudentAssignmentsPage";
-import StudentAssignmentDetailPage from "./pages/StudentAssignmentDetailPage";
-import StudentGradesPage from "./pages/StudentGradesPage";
-import StudentSettingsPage from "./pages/StudentSettingsPage";
-import StudentCalendarPage from "./pages/StudentCalendarPage";
-import TeacherConversationsPage from "./pages/TeacherConversationsPage";
-import StudentConversationsPage from "./pages/StudentConversationsPage";
-import TeacherCalendarPage from "./pages/TeacherCalendarPage";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+
+const TeacherDashboard = lazy(() => import("./pages/TeacherDashboard"));
+const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const UsersManagementPage = lazy(() => import("./pages/UsersManagementPage"));
+const ClassesManagementPage = lazy(() => import("./pages/ClassesManagementPage"));
+const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage"));
+const AdminReportsPage = lazy(() => import("./pages/AdminReportsPage"));
+const AdminActivityLogPage = lazy(() => import("./pages/AdminActivityLogPage"));
+const ClassDetail = lazy(() => import("./pages/ClassDetail"));
+const ClassesPage = lazy(() => import("./pages/ClassesPage"));
+const AssignmentDetail = lazy(() => import("./pages/AssignmentDetail"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const StudentClassesPage = lazy(() => import("./pages/StudentClassesPage"));
+const StudentClassDetailPage = lazy(() => import("./pages/StudentClassDetailPage"));
+const StudentAssignmentsPage = lazy(() => import("./pages/StudentAssignmentsPage"));
+const StudentAssignmentDetailPage = lazy(() => import("./pages/StudentAssignmentDetailPage"));
+const StudentGradesPage = lazy(() => import("./pages/StudentGradesPage"));
+const StudentSettingsPage = lazy(() => import("./pages/StudentSettingsPage"));
+const StudentCalendarPage = lazy(() => import("./pages/StudentCalendarPage"));
+const TeacherConversationsPage = lazy(() => import("./pages/TeacherConversationsPage"));
+const StudentConversationsPage = lazy(() => import("./pages/StudentConversationsPage"));
+const TeacherCalendarPage = lazy(() => import("./pages/TeacherCalendarPage"));
 
 const queryClient = new QueryClient();
 
@@ -48,6 +51,7 @@ const App = () => (
         <AuthProvider>
           <SocketProvider>
           <NotificationProvider>
+          <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
 
@@ -229,6 +233,7 @@ const App = () => (
 
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
           </NotificationProvider>
           </SocketProvider>
         </AuthProvider>

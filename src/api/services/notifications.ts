@@ -23,4 +23,7 @@ export const notificationsService = {
 
   markAllRead: () =>
     api.patch<{ message: string; count: number }>("/notifications/read-all", {}),
+
+  clearRead: () =>
+    api.delete<{ message: string; count: number }>("/notifications/read"),
 };

@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { Bell, Check, CheckCheck, MessageSquare, BookOpen, Award, Info, ClipboardList, MessagesSquare, Send } from "lucide-react";
+import { Bell, Check, CheckCheck, MessageSquare, BookOpen, Award, Info, ClipboardList, MessagesSquare, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -41,9 +41,10 @@ const typeColors: Record<string, string> = {
 };
 
 export function NotificationCenter() {
-  const { notifications, unreadCount, markRead, markAllRead, refresh } = useNotifications();
+  const { notifications, unreadCount, markRead, markAllRead, clearRead, refresh } = useNotifications();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const hasRead = notifications.some((n) => n.isRead);
 
   // Re-fetch whenever the popover is opened
   const handleOpenChange = (isOpen: boolean) => {
@@ -77,17 +78,30 @@ export function NotificationCenter() {
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between px-4 py-3">
           <h4 className="font-semibold text-sm">Thông báo</h4>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs h-7"
-              onClick={() => markAllRead()}
-            >
-              <CheckCheck className="w-3 h-3 mr-1" />
-              Đọc tất cả
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={() => markAllRead()}
+              >
+                <CheckCheck className="w-3 h-3 mr-1" />
+                Đọc tất cả
+              </Button>
+            )}
+            {hasRead && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 text-destructive hover:text-destructive"
+                onClick={() => clearRead()}
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Xóa đã đọc
+              </Button>
+            )}
+          </div>
         </div>
         <Separator />
         <ScrollArea className="max-h-80">

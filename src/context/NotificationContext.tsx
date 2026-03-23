@@ -25,6 +25,7 @@ interface NotificationContextValue {
   refresh: () => Promise<void>;
   markRead: (id: number) => Promise<void>;
   markAllRead: () => Promise<void>;
+  clearRead: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextValue | null>(null);
@@ -104,9 +105,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const clearRead = useCallback(async () => {
+    try {
+      const res = await api.delete<{ message: string; count: number }>("/notifications/read");
+      setNotifications((prev) => prev.filter((n) => !n.isRead));
+      toast.success(`Đã xóa ${res.count} thông báo đã đọc`);
+    } catch {
+      toast.error("Không thể xóa thông báo");
+    }
+  }, []);
+
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, isLoading, refresh, markRead, markAllRead }}
+      value={{ notifications, unreadCount, isLoading, refresh, markRead, markAllRead, clearRead }}
     >
       {children}
     </NotificationContext.Provider>

@@ -63,11 +63,15 @@ export default function LoginPage() {
     try {
       const { role } = await login(email.trim(), password);
       const r = (role || "").toUpperCase();
-      const roleMatches =
-        r === selectedRole ||
-        (selectedRole === "TEACHER" && r === "ADMIN"); // Admin có thể chọn Giảng viên
+      if (r === "ADMIN") {
+        logout();
+        toast.error("Tài khoản Admin vui lòng đăng nhập tại trang quản trị.");
+        setIsSubmitting(false);
+        return;
+      }
+      const roleMatches = r === selectedRole;
       if (!roleMatches) {
-        logout(); // Xóa token/user ngay để không bị redirect theo role ở đầu component
+        logout();
         toast.error(
           selectedRole === "TEACHER"
             ? "Tài khoản này không phải Giảng viên. Vui lòng chọn đăng nhập với tư cách Sinh viên."
@@ -78,7 +82,6 @@ export default function LoginPage() {
       }
       if (r === "TEACHER") navigate("/", { replace: true });
       else if (r === "STUDENT") navigate("/student", { replace: true });
-      else if (r === "ADMIN") navigate("/admin", { replace: true });
       else navigate("/", { replace: true });
       toast.success("Đăng nhập thành công");
     } catch (err) {

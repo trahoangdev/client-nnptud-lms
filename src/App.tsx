@@ -26,6 +26,7 @@ const ClassesPage = lazy(() => import("./pages/ClassesPage"));
 const AssignmentDetail = lazy(() => import("./pages/AssignmentDetail"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
+const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const StudentClassesPage = lazy(() => import("./pages/StudentClassesPage"));
 const StudentClassDetailPage = lazy(() => import("./pages/StudentClassDetailPage"));
@@ -54,6 +55,7 @@ const App = () => (
           <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/admin/login" element={<AdminLoginPage />} />
 
             {/* Trang chủ: Landing khi chưa đăng nhập, Dashboard theo vai trò khi đã đăng nhập */}
             <Route path="/" element={<HomeOrDashboard />} />

@@ -33,4 +33,8 @@ export const classesService = {
   /** POST /classes/:id/enroll — add student to class */
   enroll: (classId: number, studentId: number) =>
     api.post<{ message: string }>(`/classes/${classId}/enroll`, { studentId }),
+
+  /** POST /classes/:id/leave — student leave class */
+  leave: (classId: number) =>
+    api.post<{ message: string }>(`/classes/${classId}/leave`, {}),
 };

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface SidebarProps {
   userRole: "teacher" | "student" | "admin";
@@ -62,6 +63,7 @@ export function Sidebar({ userRole, isCollapsed: controlledCollapsed, onToggleCo
   const setIsCollapsed = onToggleCollapse ?? (() => setInternalCollapsed(prev => !prev));
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
+  const isMobile = useIsMobile();
 
   const filteredItems = navItems.filter((item) => item.roles.includes(userRole));
 
@@ -140,23 +142,25 @@ export function Sidebar({ userRole, isCollapsed: controlledCollapsed, onToggleCo
   return (
     <>
       {/* Mobile menu button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-4 left-4 z-50 md:hidden"
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-      >
-        <Menu className="w-5 h-5" />
-      </Button>
+      {isMobile && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed top-4 left-4 z-50"
+          onClick={() => setIsMobileOpen(!isMobileOpen)}
+        >
+          <Menu className="w-5 h-5" />
+        </Button>
+      )}
 
       {/* Mobile overlay */}
       <AnimatePresence>
-        {isMobileOpen && (
+        {isMobile && isMobileOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 md:hidden"
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
             onClick={() => setIsMobileOpen(false)}
           />
         )}
@@ -164,13 +168,13 @@ export function Sidebar({ userRole, isCollapsed: controlledCollapsed, onToggleCo
 
       {/* Mobile sidebar */}
       <AnimatePresence>
-        {isMobileOpen && (
+        {isMobile && isMobileOpen && (
           <motion.aside
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed left-0 top-0 bottom-0 w-64 bg-sidebar z-50 md:hidden"
+            className="fixed left-0 top-0 bottom-0 w-64 bg-sidebar z-50"
           >
             {sidebarContent}
           </motion.aside>
@@ -178,14 +182,14 @@ export function Sidebar({ userRole, isCollapsed: controlledCollapsed, onToggleCo
       </AnimatePresence>
 
       {/* Desktop sidebar */}
-      <motion.aside
-        initial={false}
-        animate={{ width: isCollapsed ? 80 : 256 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="hidden md:block fixed left-0 top-0 bottom-0 bg-sidebar z-30"
-      >
-        {sidebarContent}
-      </motion.aside>
+      {!isMobile && (
+        <aside
+          className="fixed left-0 top-0 bottom-0 bg-sidebar z-30 overflow-hidden transition-[width] duration-300 ease-in-out"
+          style={{ width: isCollapsed ? 80 : 256 }}
+        >
+          {sidebarContent}
+        </aside>
+      )}
     </>
   );
 }
